@@ -11,37 +11,66 @@ sidebar_position: 1
 
 Transform Platform lets you parse, validate, correct, and route any file format — without writing code. Define a `FileSpec`, upload a file, and the platform handles the rest.
 
-## What is it?
+## How It Works
 
-A single `FileSpec` JSON object describes a file format completely — field names, types, positions, validation rules, and correction rules. The platform uses that spec to:
+```mermaid
+flowchart LR
+    FS["🗂 FileSpec\n(your JSON schema)"] -->|drives| PP
 
-- **Parse** any file format (CSV, Fixed-Width, XML, …) into a universal `ParsedRecord` stream
-- **Correct** dirty data automatically (trim, pad, coerce dates, regex replace, …)
-- **Validate** every record against business rules
-- **Write** results to Kafka, files, webhooks, or databases
+    subgraph PP["Transformation Pipeline"]
+        direction LR
+        P[Parse] --> C[Correct] --> V[Validate] --> W[Write]
+    end
 
-> No code changes are needed to support a new file layout — register a spec, upload a file.
+    FI["📄 File Upload"] --> P
+    W --> K["📨 Kafka Events"]
+    W --> DB["🗄 Database"]
+    W --> WH["🔗 Webhook"]
+
+    style FS fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    style K fill:#dcfce7,stroke:#16a34a
+    style DB fill:#dcfce7,stroke:#16a34a
+    style WH fill:#dcfce7,stroke:#16a34a
+```
 
 ## Key Principles
 
-| Principle | What it means |
-|-----------|---------------|
-| **Spec-Driven** | All parsing behaviour is declared in `FileSpec`. Business logic lives in specs, not code. |
-| **Stream-First** | Files of any size are processed as a `Flow` — never loaded fully into memory. |
-| **Open/Closed** | Add new parsers or writers by implementing one interface. Zero changes to existing code. |
-| **Fail-Safe** | Errors are collected per-record; the pipeline continues unless a `FATAL` error is encountered. |
-| **Security-First** | Sensitive fields are masked in logs. Encryption at rest and in transit by design. |
+```mermaid
+mindmap
+  root((Transform Platform))
+    Spec-Driven
+      FileSpec defines everything
+      Business logic in specs not code
+      No deploys for new formats
+    Stream-First
+      Flow of ParsedRecord
+      Any file size
+      No full load into memory
+    Open/Closed
+      Implement one interface
+      Annotate @Component
+      Zero changes to core
+    Fail-Safe
+      Errors attach to records
+      Pipeline never stops on bad data
+      FATAL severity skips record
+    Security-First
+      Sensitive fields masked in logs
+      Encryption at rest and in transit
+```
 
 ## Supported Formats
 
-| Format | Status |
-|--------|--------|
-| CSV / Delimited (any delimiter) | ✅ Phase 1 |
-| Fixed-Width / Flat File | ✅ Phase 1 |
-| XML (XPath field mapping, XSD validation) | ✅ Phase 1 |
-| JSON | 🔜 Phase 2 |
-| NACHA | 🔜 Phase 2 |
-| ISO 20022 | 🔜 Phase 2 |
+```mermaid
+timeline
+    title Format Rollout
+    Phase 1 : CSV / Delimited
+            : Fixed-Width / Flat File
+            : XML with XPath mapping
+    Phase 2 : JSON
+            : NACHA
+            : ISO 20022
+```
 
 ## Next Steps
 

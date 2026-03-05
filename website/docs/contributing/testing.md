@@ -10,26 +10,48 @@ sidebar_position: 2
 
 The project uses **Kotest** exclusively. JUnit Vintage is excluded from the test classpath. Never create JUnit test classes.
 
-## Spec Style Guide
+## Which Spec Style to Use
 
-Use the correct Kotest spec style for what you're testing:
+```mermaid
+flowchart TD
+    Q{What are you testing?}
 
-| What you're testing | Kotest style |
-|---------------------|-------------|
-| Parser behaviour | `DescribeSpec` |
-| Correction rules | `ShouldSpec` |
-| Validation rules | `BehaviorSpec` (Given/When/Then) |
-| Registry / routing | `FunSpec` |
-| Pipeline integration | `ShouldSpec` or `FunSpec` |
+    Q -->|Parser behaviour| DS["DescribeSpec\ndescribe block + it blocks"]
+    Q -->|Correction rules| SS["ShouldSpec\ncontext block + should blocks"]
+    Q -->|Validation rules| BS["BehaviorSpec\nGiven / When / Then"]
+    Q -->|Registry or routing| FS["FunSpec\ntest blocks"]
+    Q -->|Pipeline integration| FS2["FunSpec or ShouldSpec"]
 
-## Minimum Coverage Requirements
+    style DS fill:#dbeafe,stroke:#2563eb
+    style SS fill:#dcfce7,stroke:#16a34a
+    style BS fill:#fef9c3,stroke:#ca8a04
+    style FS fill:#f3f4f6,stroke:#6b7280
+    style FS2 fill:#f3f4f6,stroke:#6b7280
+```
 
-Every new feature needs tests:
+## Coverage Requirements
 
-- Every new **parser** → `DescribeSpec` covering happy path, malformed input, sensitive field masking
-- Every new **writer** → `FunSpec` covering `supports()`, `write()`, `flush()`
-- Every new **correction type** → `ShouldSpec` cases in `CorrectionEngineTest`
-- Every new **validation rule type** → `BehaviorSpec` (Given/When/Then) in `ValidationEngineTest`
+```mermaid
+graph LR
+    subgraph "New code"
+        NP[New Parser]
+        NW[New Writer]
+        NC[New CorrectionType]
+        NV[New RuleType]
+    end
+
+    subgraph "Required tests"
+        DS["DescribeSpec\nhappy path + malformed input\n+ sensitive field masking"]
+        FS["FunSpec\nsupports() + write() + flush()"]
+        SS["ShouldSpec\nin CorrectionEngineTest"]
+        BS["BehaviorSpec Given/When/Then\nin ValidationEngineTest"]
+    end
+
+    NP --> DS
+    NW --> FS
+    NC --> SS
+    NV --> BS
+```
 
 ## Coroutine Testing
 
@@ -51,11 +73,19 @@ test("parser emits correct records") {
 }
 ```
 
-## No Spring Context in Unit Tests
+## Test Isolation — No Spring Context
 
-- Instantiate classes directly in unit tests
-- Use `MockK` for mocking: `mockk<MyDependency>()`
-- Only use `@SpringBootTest` for integration tests that genuinely need the full context
+```mermaid
+flowchart LR
+    UT["Unit Tests\n(most tests)"] -->|instantiate directly| CLASS[MyParser / MyWriter / MyEngine]
+    UT -->|mock dependencies| MK["MockK\nmockk()"]
+    IT["Integration Tests\n(@SpringBootTest)"] -->|full context| SPRING[Spring Application Context]
+
+    style UT fill:#dcfce7,stroke:#16a34a
+    style IT fill:#fef9c3,stroke:#ca8a04
+```
+
+Never use `@SpringBootTest` in unit tests — instantiate classes directly and mock dependencies with MockK.
 
 ## Running Tests
 
@@ -70,10 +100,6 @@ test("parser emits correct records") {
 ./gradlew :platform-core:test && open platform-core/build/reports/tests/test/index.html
 ```
 
-## Before Every Commit
-
-```bash
-./gradlew :platform-core:test
-```
-
-All tests must pass before opening a PR.
+:::warning
+All tests must pass before opening a PR. Run `./gradlew :platform-core:test` before every commit.
+:::

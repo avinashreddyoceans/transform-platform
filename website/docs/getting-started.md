@@ -12,10 +12,10 @@ Get the Transform Platform running locally in about 5 minutes.
 
 ```mermaid
 flowchart LR
-    A([Clone repo]) --> B[Copy env.example → .env]
-    B --> C[docker compose up -d]
-    C --> D[./gradlew :platform-api:bootRun]
-    D --> E([Open Swagger UI\nlocalhost:8080/swagger-ui])
+    A([Clone repo]) --> B[Copy env.example]
+    B --> C[docker compose up]
+    C --> D[gradlew bootRun]
+    D --> E([Swagger UI\n:8080/swagger-ui])
 
     style A fill:#dbeafe,stroke:#2563eb
     style E fill:#dcfce7,stroke:#16a34a
@@ -36,29 +36,33 @@ cd transform-platform
 
 ## 2. Configure Environment
 
-Copy the example env file and fill in any required values:
-
 ```bash
 cp .docker/env.example .env
 ```
 
 :::tip
-For a local dev setup the defaults in `env.example` work out of the box. You only need to change values for production deployments.
+For local dev the defaults in `env.example` work out of the box. Only change values for production deployments.
 :::
 
 ## 3. Start Infrastructure
 
-Bring up Postgres, Kafka, Zookeeper, and Kafka UI with Docker Compose:
+```mermaid
+graph LR
+    DC[docker compose up -d] --> PG[(PostgreSQL\nport 5432)]
+    DC --> KF[Kafka\nport 9092]
+    DC --> ZK[Zookeeper\nport 2181]
+    DC --> KU[Kafka UI\nport 8090]
+
+    style DC fill:#dbeafe,stroke:#2563eb
+    style PG fill:#f3f4f6,stroke:#6b7280
+    style KF fill:#f3f4f6,stroke:#6b7280
+    style ZK fill:#f3f4f6,stroke:#6b7280
+    style KU fill:#f3f4f6,stroke:#6b7280
+```
 
 ```bash
 docker compose -f .docker/docker-compose.yml up -d
 ```
-
-| Service | Default Port |
-|---------|-------------|
-| PostgreSQL | 5432 |
-| Kafka | 9092 |
-| Kafka UI | 8090 |
 
 ## 4. Run the API
 
@@ -82,11 +86,30 @@ http://localhost:8080/swagger-ui
 ./gradlew test
 ```
 
-All 53 tests in `platform-core` should pass.
+All 53 Kotest tests in `platform-core` should pass.
 
 ---
 
 ## Quick Transform Walkthrough
+
+```mermaid
+sequenceDiagram
+    actor You
+    participant API as platform-api
+    participant Pipeline as TransformationPipeline
+    participant Kafka
+
+    You->>API: POST /api/v1/specs (FileSpec JSON)
+    API-->>You: 201 Created { specId }
+
+    You->>API: POST /api/v1/transform/file-to-events\n(file + specId + kafkaTopic)
+    API->>Pipeline: parse → correct → validate → write
+    loop Each record
+        Pipeline->>Kafka: publish ParsedRecord as JSON
+    end
+    Pipeline-->>API: ProcessingResult
+    API-->>You: 200 OK { processed, failed, skipped }
+```
 
 ### Step 1 — Register a Spec
 
@@ -126,10 +149,8 @@ curl -X POST http://localhost:8080/api/v1/transform/file-to-events \
   -F "kafkaTopic=bank-transactions"
 ```
 
-Records are parsed, corrected, validated, and published to Kafka. The response includes a `ProcessingResult` with counts for processed, failed, and skipped records.
-
 ---
 
 ## IntelliJ IDEA Setup
 
-Shared run configurations are committed to `.run/` and `.idea/runConfigurations/`. Open the project in IntelliJ and the **Run Transform App (Local)** and **Docker Compose Dependencies** configurations should appear automatically.
+Shared run configurations are committed to `.run/` and `.idea/runConfigurations/`. Open the project in IntelliJ and **Run Transform App (Local)** and **Docker Compose Dependencies** appear automatically.
