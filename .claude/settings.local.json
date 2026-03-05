@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash($GRADLE_BIN:*)",
+      "Bash(chmod +x:*)",
+      "Bash(export:*)",
+      "Bash(./gradlew :platform-core:compileKotlin:*)",
+      "Bash(gradle wrapper:*)",
+      "Bash(java:*)",
+      "Read(//usr/**)",
+      "Read(//opt/**)",
+      "Read(//Users/avinashreddybokka/Applications/**)",
+      "Bash(./gradlew :platform-core:compileTestKotlin:*)",
+      "Bash(./gradlew :platform-api:compileKotlin:*)",
+      "Bash(./gradlew build:*)",
+      "Bash(./gradlew :platform-core:test:*)"
+    ]
+  }
+}

@@ -39,7 +39,7 @@ Enterprise-grade, spec-driven file ↔ event transformation engine.
 
 ### Start infrastructure
 ```bash
-docker-compose up -d
+docker compose -f .docker/docker-compose.yml up -d
 ```
 
 ### Run the API
