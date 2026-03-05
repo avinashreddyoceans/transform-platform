@@ -46,8 +46,8 @@ class CorrectionEngine {
             CorrectionType.PAD_RIGHT -> rule.value?.toIntOrNull()?.let { value?.padEnd(it, ' ') } ?: value
             CorrectionType.REMOVE_SPECIAL_CHARS -> value?.replace(Regex("[^a-zA-Z0-9 ]"), "")
             CorrectionType.REGEX_REPLACE -> {
-                val parts = rule.value?.split("->")?.takeIf { it.size == 2 } ?: return value
-                value?.replace(Regex(parts[0].trim()), parts[1].trim())
+                val parts = rule.value?.split("->")?.takeIf { it.size == 2 }
+                if (parts == null) value else value?.replace(Regex(parts[0].trim()), parts[1].trim())
             }
         }
 

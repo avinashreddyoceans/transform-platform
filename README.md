@@ -13,13 +13,13 @@ Enterprise-grade, spec-driven file ↔ event transformation engine.
 
 ## Modules
 
-| Module | Purpose |
-|---|---|
-| `platform-common` | Shared models, exceptions, utilities |
-| `platform-core` | Spec engine, parsers, validators, transformers, writers |
-| `platform-api` | REST API — spec management, file upload, transform orchestration |
-| `platform-pipeline` | Spring Batch jobs for bulk processing |
-| `platform-scheduler` | Quartz-based scheduling and delay engine |
+| Module               | Purpose                                                          |
+|----------------------|------------------------------------------------------------------|
+| `platform-common`    | Shared models, exceptions, utilities                             |
+| `platform-core`      | Spec engine, parsers, validators, transformers, writers          |
+| `platform-api`       | REST API — spec management, file upload, transform orchestration |
+| `platform-pipeline`  | Spring Batch jobs for bulk processing                            |
+| `platform-scheduler` | Quartz-based scheduling and delay engine                         |
 
 ## Supported Formats (Phase 1)
 
@@ -57,7 +57,7 @@ Open: http://localhost:8080/swagger-ui
 
 ## Creating a Spec
 
-```json
+```json5
 POST /api/v1/specs
 {
   "name": "Bank Transactions CSV",

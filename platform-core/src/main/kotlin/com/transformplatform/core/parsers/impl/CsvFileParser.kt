@@ -169,7 +169,7 @@ class CsvFileParser : FileParser {
                 raw,
                 ParseError(
                     field = fieldSpec.name,
-                    message = "Cannot convert '${if (fieldSpec.sensitive) "***" else raw}' to ${fieldSpec.type}",
+                    message = "Cannot convert field '${fieldSpec.name}' value '${if (fieldSpec.sensitive) "***" else raw}' to ${fieldSpec.type}",
                     severity = Severity.ERROR,
                     rawValue = if (fieldSpec.sensitive) null else raw
                 )
