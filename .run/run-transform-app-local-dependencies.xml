@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+    <configuration default="false" name="run-transform-local-dependencies (Docker)" type="docker-deploy" factoryName="docker-compose.yml" server-name="Docker">
+        <deployment type="docker-compose.yml">
+            <settings>
+                <option name="composeProjectName" value="transform-platform-local" />
+                <option name="sourceFilePath" value=".docker/docker-compose.yml" />
+                <option name="removeVolumesOnComposeDown" value="false" />
+                <option name="upRemoveOrphans" value="true" />
+            </settings>
+        </deployment>
+        <method v="2" />
+    </configuration>
+</component>

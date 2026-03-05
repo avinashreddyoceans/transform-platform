@@ -1,5 +1,7 @@
 # ─── IntelliJ IDEA ────────────────────────────────────────────────────────────
 .idea/
+# Track shared run configurations so teammates get them on clone
+!.idea/runConfigurations/
 *.iml
 *.iws
 *.ipr
@@ -50,3 +52,10 @@ tmp/
 temp/
 *.tmp
 test-output/
+
+# ─── Docusaurus ───────────────────────────────────────────────────────────────
+website/node_modules/
+website/.docusaurus/
+website/build/
+# SSR bundle — internal Docusaurus artifact, not needed for GitHub Pages
+docs/__server/

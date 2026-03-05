@@ -1,0 +1,27 @@
+<component name="ProjectRunConfigurationManager">
+    <configuration default="false" name="run-transform-local-app" type="SpringBootApplicationRunConfiguration" factoryName="Spring Boot">
+        <module name="transform-platform.platform-api.main" />
+        <option name="SPRING_BOOT_MAIN_CLASS" value="com.transformplatform.api.TransformPlatformApplicationKt" />
+        <option name="VM_PARAMETERS" value="-Xms256m -Xmx512m -Djava.security.egd=file:/dev/./urandom" />
+        <option name="WORKING_DIRECTORY" value="$MODULE_WORKING_DIR$" />
+        <envs>
+            <!-- Database (PostgreSQL) -->
+            <env name="DB_USER" value="transform_user" />
+            <env name="DB_PASS" value="transform_pass" />
+            <!-- Kafka -->
+            <env name="KAFKA_BROKERS" value="localhost:9092" />
+            <!-- Server -->
+            <env name="PORT" value="8080" />
+            <!-- Security — local dev only -->
+            <env name="JWT_SECRET" value="local-dev-secret-replace-this-before-any-real-deployment" />
+            <!-- File processing -->
+            <env name="TEMP_DIR" value="/tmp/transform-platform" />
+            <env name="ENCRYPTION_ENABLED" value="false" />
+            <!-- Spring profile -->
+            <env name="SPRING_PROFILES_ACTIVE" value="local" />
+        </envs>
+        <method v="2">
+            <option name="Make" enabled="true" />
+        </method>
+    </configuration>
+</component>
