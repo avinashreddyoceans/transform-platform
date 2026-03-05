@@ -2,6 +2,9 @@
 
 Enterprise-grade, spec-driven file ↔ event transformation engine.
 
+📖 **[Full documentation →](https://avinashreddyoceans.github.io/transform-platform/)**
+To run the docs locally: `cd website && npm install && npm start`
+
 ## Architecture
 
 ```

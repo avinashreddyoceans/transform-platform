@@ -8,6 +8,19 @@ sidebar_position: 2
 
 Get the Transform Platform running locally in about 5 minutes.
 
+## Setup Flow
+
+```mermaid
+flowchart LR
+    A([Clone repo]) --> B[Copy env.example → .env]
+    B --> C[docker compose up -d]
+    C --> D[./gradlew :platform-api:bootRun]
+    D --> E([Open Swagger UI\nlocalhost:8080/swagger-ui])
+
+    style A fill:#dbeafe,stroke:#2563eb
+    style E fill:#dcfce7,stroke:#16a34a
+```
+
 ## Prerequisites
 
 - **JDK 21+** — [Download Temurin](https://adoptium.net/)

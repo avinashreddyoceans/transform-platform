@@ -8,6 +8,23 @@ sidebar_position: 1
 
 Transform Platform uses the Open/Closed principle — adding a new file format requires implementing one interface and annotating with `@Component`. No changes to `ParserRegistry` or `TransformationPipeline`.
 
+## How Parser Discovery Works
+
+```mermaid
+flowchart TD
+    A([Spring Boot starts]) --> B[Component scan finds all @Component beans]
+    B --> C[ParserRegistry collects all FileParser beans]
+    C --> D{Incoming transform request}
+    D --> E["ParserRegistry.parse(input, spec)\nCalls supports(spec.format) on each parser"]
+    E --> F{Matching parser found?}
+    F -->|Yes| G["Your parser's parse() is called\nReturns Flow of ParsedRecord"]
+    F -->|No| H[UnsupportedFormatException]
+    G --> I([Pipeline continues])
+
+    style G fill:#dcfce7,stroke:#16a34a
+    style H fill:#fee2e2,stroke:#ef4444
+```
+
 ## Steps
 
 ### 1. Create the parser file

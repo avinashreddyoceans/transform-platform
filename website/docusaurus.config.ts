@@ -17,6 +17,12 @@ const config: Config = {
   onBrokenLinks: 'warn',
   onBrokenMarkdownLinks: 'warn',
 
+  // Enable Mermaid diagram rendering in markdown
+  markdown: {
+    mermaid: true,
+  },
+  themes: ['@docusaurus/theme-mermaid'],
+
   i18n: {
     defaultLocale: 'en',
     locales: ['en'],
@@ -45,6 +51,10 @@ const config: Config = {
       defaultMode: 'light',
       disableSwitch: false,
       respectPrefersColorScheme: true,
+    },
+    // Mermaid theme follows the site color mode automatically
+    mermaid: {
+      theme: { light: 'neutral', dark: 'dark' },
     },
     navbar: {
       title: 'Transform Platform',

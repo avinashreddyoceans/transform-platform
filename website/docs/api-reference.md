@@ -8,6 +8,32 @@ sidebar_position: 6
 
 The full interactive API is available at `http://localhost:8080/swagger-ui` when running locally.
 
+## Request Lifecycle
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant API as platform-api
+    participant SVC as TransformService
+    participant PIPE as TransformationPipeline
+    participant W as RecordWriter (Kafka)
+
+    C->>API: POST /transform/file-to-events\n(multipart: file + specId + kafkaTopic)
+    API->>SVC: transform(file, specId, request)
+    SVC->>PIPE: process(inputStream, spec, pipelineRequest)
+
+    loop For each record in Flow
+        PIPE->>PIPE: parse → correct → validate → filter
+        PIPE->>W: write(record, request)
+    end
+
+    PIPE->>W: flush(request)
+    W-->>PIPE: ack
+    PIPE-->>SVC: ProcessingResult
+    SVC-->>API: ProcessingResult
+    API-->>C: 200 OK + ProcessingResult JSON
+```
+
 ## Spec Management
 
 ### Create a Spec
