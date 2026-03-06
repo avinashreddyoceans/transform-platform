@@ -68,7 +68,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    A([Admin updates password\nvia PUT /integrations/:id/credentials]) --> B[New encrypted value written\nwith new rotation timestamp]
+    A(["Admin updates password\nvia PUT /integrations/:id/credentials"]) --> B["New encrypted value written\nwith new rotation timestamp"]
     B --> C[IntegrationUpdatedEvent published]
     C --> D[IntegrationRegistry tears down\nold connector]
     D --> E[New connector built\nwith fresh credentials]

@@ -22,16 +22,16 @@ SFTP is the primary file transport protocol for enterprise partners. The platfor
 
 ```mermaid
 flowchart TD
-    SCHED([Quartz / Spring Scheduled\npollIntervalSeconds]) --> CONN[SftpConnector.connect\nreuse pooled session]
-    CONN --> LIST[listFiles(remotePath, filePattern)]
+    SCHED(["Quartz Scheduler\npollIntervalSeconds"]) --> CONN["SftpConnector.connect\nreuse pooled session"]
+    CONN --> LIST["listFiles - remotePath + filePattern"]
     LIST --> CHK{New files found?}
-    CHK -->|No| SLEEP([Wait for next poll])
-    CHK -->|Yes| LOCK[Acquire per-file lock\nprevent duplicate processing]
-    LOCK --> DOWN[downloadFile → InputStream]
-    DOWN --> PIPE[Feed into TransformationPipeline\nwith client FileSpec]
+    CHK -->|No| SLEEP(["Wait for next poll"])
+    CHK -->|Yes| LOCK["Acquire per-file lock\nprevent duplicate processing"]
+    LOCK --> DOWN["downloadFile to InputStream"]
+    DOWN --> PIPE["Feed into TransformationPipeline\nwith client FileSpec"]
     PIPE --> RESULT{Processing result}
-    RESULT -->|Success| ACK[acknowledgeFile\nmove to /processed or delete]
-    RESULT -->|Failed| ERR[Move to /error\nlog + alert]
+    RESULT -->|Success| ACK["acknowledgeFile\nmove to /processed or delete"]
+    RESULT -->|Failed| ERR["Move to /error\nlog + alert"]
     ACK --> NEXT{More files?}
     ERR --> NEXT
     NEXT -->|Yes| LOCK
@@ -52,7 +52,7 @@ flowchart TD
     LOOKUP --> FOUND{Outbound SFTP\nconfigured?}
     FOUND -->|No| SKIP[Log warning\nNo delivery]
     FOUND -->|Yes| CONN[SftpConnector.connect\nreuse session]
-    CONN --> NAME[Apply fileNamingPattern\ne.g. output_{date}_{correlationId}.csv]
+    CONN --> NAME["Apply fileNamingPattern\ne.g. output-date-correlationId.csv"]
     NAME --> SEND[sftp.put\nremotePath + filename]
     SEND --> OK{Transfer OK?}
     OK -->|Yes| LOG([Audit log: file delivered])

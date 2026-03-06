@@ -75,17 +75,20 @@ classDiagram
         +destination: PipelineDestination
         +skipInvalidRecords: Boolean
         +correlationId: String
-        +clientId: UUID [NEW]
-        +sourceIntegrationId: UUID? [NEW]
+        +clientId: UUID
+        +sourceIntegrationId: UUID
     }
 
     class PipelineDestination {
         +type: DestinationType
-        +kafkaTopic: String?
-        +outputFilePath: String?
-        +webhookUrl: String?
-        +integrationId: UUID? [NEW - resolves connector from registry]
+        +kafkaTopic: String
+        +outputFilePath: String
+        +webhookUrl: String
+        +integrationId: UUID
     }
+
+    note for PipelineRequest "clientId and sourceIntegrationId are new fields added by the Integration Domain"
+    note for PipelineDestination "integrationId is new — resolves the live connector from IntegrationRegistry"
 ```
 
 ## Outbound Writer Resolution
@@ -116,7 +119,7 @@ Inbound connectors are **not** driven by the pipeline — they drive the pipelin
 
 ```mermaid
 flowchart TD
-    POLL([SftpInboundPoller\n@Scheduled or Quartz]) --> LIST[List files on SFTP]
+    POLL(["SftpInboundPoller\nScheduled Poller"]) --> LIST[List files on SFTP]
     LIST --> DL[Download file]
     DL --> SPEC[Lookup client's FileSpec\nfor this integration]
     SPEC --> REQ[Build PipelineRequest\nclientId + sourceIntegrationId]

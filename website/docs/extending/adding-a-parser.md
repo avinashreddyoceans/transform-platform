@@ -12,7 +12,7 @@ Transform Platform uses the Open/Closed principle — adding a new file format r
 
 ```mermaid
 flowchart TD
-    A([Spring Boot starts]) --> B[Component scan finds all @Component beans]
+    A([Spring Boot starts]) --> B["Component scan finds all @Component beans"]
     B --> C[ParserRegistry collects all FileParser beans]
     C --> D{Incoming transform request}
     D --> E["ParserRegistry.parse(input, spec)\nCalls supports(spec.format) on each parser"]

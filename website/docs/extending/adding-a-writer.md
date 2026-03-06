@@ -12,7 +12,7 @@ Writers consume the validated `ParsedRecord` stream and route records to a desti
 
 ```mermaid
 flowchart TD
-    A([Pipeline starts]) --> B[Spring resolves RecordWriter\nvia supports()]
+    A([Pipeline starts]) --> B["Spring resolves RecordWriter\nvia supports()"]
     B --> C{Record arrives}
     C -->|valid record| D["write(record, request)\ncalled per record"]
     D --> C

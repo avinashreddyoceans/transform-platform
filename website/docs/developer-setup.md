@@ -19,15 +19,15 @@ flowchart TD
     CHECK_NODE -->|No| NVM{nvm installed?}
 
     NVM -->|No| INSTALL_NVM[Install nvm]
-    NVM -->|Yes, but not in PATH| SOURCE_NVM[Source nvm in ~/.zshrc]
-    NVM -->|Yes| USE_NVM[nvm install && nvm use]
+    NVM -->|Yes, not in PATH| SOURCE_NVM["Source nvm in ~/.zshrc"]
+    NVM -->|Yes| USE_NVM["nvm install + nvm use"]
 
     INSTALL_NVM --> SOURCE_NVM
     SOURCE_NVM --> USE_NVM
     USE_NVM --> INSTALL
 
     INSTALL --> START_DEV[npm start]
-    START_DEV --> BROWSER([localhost:3000/transform-platform/])
+    START_DEV --> BROWSER(["localhost:3000/transform-platform/"])
 
     style START fill:#dbeafe,stroke:#2563eb
     style BROWSER fill:#dcfce7,stroke:#16a34a
