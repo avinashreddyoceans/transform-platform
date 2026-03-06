@@ -64,10 +64,20 @@ const config: Config = {
       },
       items: [
         {
-          type: 'docSidebar',
-          sidebarId: 'docs',
+          to: '/intro',
           position: 'left',
           label: 'Docs',
+          activeBaseRegex: '^/(?!$)',
+        },
+        {
+          to: '/integration/overview',
+          position: 'left',
+          label: 'Integrations',
+        },
+        {
+          to: '/getting-started',
+          position: 'left',
+          label: 'Get Started',
         },
         {
           href: 'https://github.com/avinashreddyoceans/transform-platform',

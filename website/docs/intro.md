@@ -1,7 +1,6 @@
 ---
 id: intro
 title: Introduction
-slug: /
 sidebar_position: 1
 ---
 
