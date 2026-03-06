@@ -57,5 +57,5 @@ test-output/
 website/node_modules/
 website/.docusaurus/
 website/build/
-# SSR bundle — internal Docusaurus artifact, not needed for GitHub Pages
-docs/__server/
+# Built output — deployed to gh-pages branch by CI, never committed to main
+docs/

@@ -30,8 +30,22 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: '🔌 Extending the Platform',
+      label: '🔗 Integration Domain',
       collapsed: false,
+      items: [
+        'integration/overview',
+        'integration/domain-model',
+        'integration/credential-management',
+        'integration/dynamic-onboarding',
+        'integration/sftp',
+        'integration/pipeline-integration',
+        'integration/module-structure',
+      ],
+    },
+    {
+      type: 'category',
+      label: '🔌 Extending the Platform',
+      collapsed: true,
       items: [
         'extending/adding-a-parser',
         'extending/adding-a-writer',
