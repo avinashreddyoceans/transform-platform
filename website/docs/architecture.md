@@ -8,25 +8,29 @@ sidebar_position: 3
 
 ## High-Level Data Flow
 
+The platform is bidirectional. **One `FileSpec`** in the registry drives both directions — it is the single source of truth for parsing, correction, validation, and file generation.
+
 ```mermaid
 flowchart LR
-    subgraph Inbound["📥 File → Events"]
-        FI[📄 File In] --> PA[Parser]
-        PA --> CO[Correct]
-        CO --> VA[Validate]
-        VA --> KA[📨 Kafka Events Out]
+    subgraph IB["📥 File → Events"]
+        direction LR
+        FI[File] --> PA[Parse] --> CO[Correct] --> VA[Validate] --> KA[Events Out]
     end
 
-    subgraph Outbound["📤 Events → File"]
-        EI[📨 Events In] --> AG[Aggregator]
-        AG --> FB[File Builder]
-        FB --> FO[📄 File Out]
+    subgraph OB["📤 Events → File"]
+        direction LR
+        EI[Events] --> MA[Map] --> C2[Correct] --> V2[Validate] --> GE[Generate] --> FO[File Out]
     end
 
-    SR[(🗂 Spec Registry)] -.->|drives| PA
-    SR -.->|drives| CO
-    SR -.->|drives| VA
+    SR[("FileSpec Registry")] -.->|inbound config| IB
+    SR -.->|outbound config| OB
+
+    style SR fill:#dbeafe,stroke:#2563eb
+    style IB fill:#f0fdf4,stroke:#16a34a
+    style OB fill:#fef9c3,stroke:#ca8a04
 ```
+
+`FileSpec` has two optional sections: the existing inbound fields/rules, and a new `outbound: OutboundConfig` block. A spec can be inbound-only, outbound-only, or fully bidirectional — with zero code changes. See [Events → File Pipeline](./events-to-file) for the full design.
 
 ## Transformation Pipeline (Detail)
 
@@ -120,3 +124,8 @@ flowchart LR
 | `KafkaRecordWriter` | `core.writers` | Writes `ParsedRecord` → Kafka as JSON |
 | `TransformService` | `api.service` | Bridge: HTTP request → pipeline |
 | `SpecService` | `api.service` | In-memory spec store (replace with JPA for production) |
+| `OutboundConfig` | `core.spec.model` | Outbound section of FileSpec — field mappings, generator format, rules |
+| `EventMapper` | `core.transformers` | Projects ParsedRecord → FileRecord using FieldMapping list |
+| `FileGenerator` | `core.generators` | Interface for file format writers (NACHA, CSV, SWIFT…) |
+| `GeneratorRegistry` | `core.generators` | Auto-discovers @Component FileGenerator beans |
+| `EventToFilePipeline` | `core.pipeline` | Orchestrates map → correct → validate → generate |

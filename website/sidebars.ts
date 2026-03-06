@@ -23,6 +23,11 @@ const sidebars: SidebarsConfig = {
       label: '🏗️ Architecture',
     },
     {
+      type: 'doc',
+      id: 'events-to-file',
+      label: '🔄 Events → File Pipeline',
+    },
+    {
       type: 'category',
       label: '📦 Modules',
       collapsed: false,
