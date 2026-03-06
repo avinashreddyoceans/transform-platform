@@ -2,6 +2,25 @@ import { themes as prismThemes } from 'prism-react-renderer';
 import type { Config } from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
+// ─── Search mode ──────────────────────────────────────────────────────────────
+//
+// STEP 1 (active now):  Local offline search — works immediately, no account needed.
+//
+// STEP 2 (activate when ready):  Algolia DocSearch v4 + AskAI
+//   1. Apply free at https://docsearch.algolia.com  (automated, usually same-day for open-source)
+//   2. In Algolia dashboard → AI Search → Create Assistant → copy the assistantId
+//   3. Fill in ALGOLIA_APP_ID, ALGOLIA_SEARCH_API_KEY, ALGOLIA_INDEX_NAME, ALGOLIA_ASSISTANT_ID below
+//   4. Comment out the LOCAL_SEARCH plugin block and uncomment the ALGOLIA block
+//
+const SEARCH_MODE: 'local' | 'algolia' = 'local';
+
+// ── Algolia credentials (fill these in when you get them) ─────────────────────
+const ALGOLIA_APP_ID         = 'YOUR_APP_ID';          // e.g. "B1G2XXXXXXX"
+const ALGOLIA_SEARCH_API_KEY = 'YOUR_SEARCH_API_KEY';  // read-only, safe to commit
+const ALGOLIA_INDEX_NAME     = 'transform-platform';
+const ALGOLIA_ASSISTANT_ID   = 'YOUR_ASSISTANT_ID';    // from Algolia AI Search dashboard
+// ──────────────────────────────────────────────────────────────────────────────
+
 const config: Config = {
   title: 'Transform Platform',
   tagline: 'Enterprise-grade, spec-driven file ↔ event transformation engine',
@@ -17,11 +36,46 @@ const config: Config = {
   onBrokenLinks: 'warn',
   onBrokenMarkdownLinks: 'warn',
 
-  // Enable Mermaid diagram rendering in markdown
   markdown: {
     mermaid: true,
   },
-  themes: ['@docusaurus/theme-mermaid'],
+
+  themes: [
+    '@docusaurus/theme-mermaid',
+    // ── STEP 1: Local search theme ────────────────────────────────────────────
+    // Disable this block when switching to Algolia (STEP 2)
+    ...(SEARCH_MODE === 'local'
+      ? [
+          [
+            require.resolve('@easyops-cn/docusaurus-search-local'),
+            {
+              hashed: true,
+              language: ['en'],
+              highlightSearchTermsOnTargetPage: true,
+              explicitSearchResultPath: true,
+              searchBarShortcutHint: false,
+              docsRouteBasePath: '/',
+            },
+          ] as any,
+        ]
+      : []),
+  ],
+
+  // ── STEP 2: Algolia DocSearch v4 adapter plugin (uncomment when ready) ──────
+  // plugins: [
+  //   [
+  //     '@docsearch/docusaurus-adapter',
+  //     {
+  //       appId: ALGOLIA_APP_ID,
+  //       apiKey: ALGOLIA_SEARCH_API_KEY,
+  //       indexName: ALGOLIA_INDEX_NAME,
+  //       askAi: {
+  //         assistantId: ALGOLIA_ASSISTANT_ID,
+  //         sidePanel: true,   // opens AI chat in a side panel (recommended)
+  //       },
+  //     },
+  //   ],
+  // ],
 
   i18n: {
     defaultLocale: 'en',
@@ -52,10 +106,21 @@ const config: Config = {
       disableSwitch: false,
       respectPrefersColorScheme: true,
     },
-    // Mermaid theme follows the site color mode automatically
     mermaid: {
       theme: { light: 'neutral', dark: 'dark' },
     },
+
+    // ── STEP 2: Algolia DocSearch v4 + AskAI (uncomment when ready) ──────────
+    // docsearch: {
+    //   appId: ALGOLIA_APP_ID,
+    //   apiKey: ALGOLIA_SEARCH_API_KEY,
+    //   indexName: ALGOLIA_INDEX_NAME,
+    //   askAi: {
+    //     assistantId: ALGOLIA_ASSISTANT_ID,
+    //     sidePanel: true,
+    //   },
+    // },
+
     navbar: {
       title: 'Transform Platform',
       logo: {
@@ -92,9 +157,9 @@ const config: Config = {
         {
           title: 'Docs',
           items: [
-            { label: 'Introduction', to: '/' },
+            { label: 'Introduction',   to: '/' },
             { label: 'Getting Started', to: '/getting-started' },
-            { label: 'Architecture', to: '/architecture' },
+            { label: 'Architecture',   to: '/architecture' },
           ],
         },
         {
@@ -107,14 +172,8 @@ const config: Config = {
         {
           title: 'Community',
           items: [
-            {
-              label: 'GitHub',
-              href: 'https://github.com/avinashreddyoceans/transform-platform',
-            },
-            {
-              label: 'Issues',
-              href: 'https://github.com/avinashreddyoceans/transform-platform/issues',
-            },
+            { label: 'GitHub', href: 'https://github.com/avinashreddyoceans/transform-platform' },
+            { label: 'Issues', href: 'https://github.com/avinashreddyoceans/transform-platform/issues' },
           ],
         },
       ],

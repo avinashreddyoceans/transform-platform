@@ -1,0 +1,150 @@
+---
+id: ai-search
+title: AI-Powered Search
+sidebar_position: 2
+---
+
+# AI-Powered Search
+
+Transform Platform docs ship with **local full-text search active today**, and are pre-wired for **Algolia DocSearch v4 + AskAI** — Algolia's conversational AI assistant that answers questions directly from your documentation. Switching to AI search requires only credentials — no code changes.
+
+---
+
+## What You Get with AskAI
+
+Once Algolia is activated, an **Ask AI** button appears in the search bar. Users can type questions in natural language — *"How do I add a new file format?"*, *"What encryption does credential storage use?"* — and get a context-aware answer synthesized from your docs, with citations linking to the relevant pages.
+
+<div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', margin: '1.5rem 0'}}>
+
+<div style={{
+  background: '#f0fdf4',
+  border: '1px solid #bbf7d0',
+  borderTop: '3px solid #16a34a',
+  borderRadius: 10,
+  padding: '1.25rem',
+}}>
+  <div style={{fontWeight: 700, marginBottom: '0.6rem', color: '#15803d'}}>✅ Active Now — Local Search</div>
+  <div style={{fontSize: '0.88rem', color: '#374151', lineHeight: 1.65}}>
+    Full-text offline search via <code>@easyops-cn/docusaurus-search-local</code>. Instant fuzzy search across all pages, highlighted results, no internet required. Index built at deploy time.
+  </div>
+</div>
+
+<div style={{
+  background: '#eff6ff',
+  border: '1px solid #bfdbfe',
+  borderTop: '3px solid #3b82f6',
+  borderRadius: 10,
+  padding: '1.25rem',
+}}>
+  <div style={{fontWeight: 700, marginBottom: '0.6rem', color: '#1d4ed8'}}>🚀 Step 2 — Algolia DocSearch v4 + AskAI</div>
+  <div style={{fontSize: '0.88rem', color: '#374151', lineHeight: 1.65}}>
+    Replaces local search with Algolia's hosted index. Adds an <strong>Ask AI side panel</strong> — conversational answers with page citations. Free for open-source documentation.
+  </div>
+</div>
+
+</div>
+
+---
+
+## Activating Algolia DocSearch + AskAI
+
+### Step 1 — Apply for DocSearch (free)
+
+Go to **[docsearch.algolia.com](https://docsearch.algolia.com)** and apply. As of late 2025, sign-up is fully self-service — no waiting for manual approval for public open-source sites.
+
+Submit your live documentation URL:
+
+```
+https://avinashreddyoceans.github.io/transform-platform/
+```
+
+Once approved, you'll receive `appId`, `apiKey`, and `indexName` by email (or directly in the Algolia dashboard).
+
+:::tip Free for open source
+DocSearch is entirely free for public technical documentation. Transform Platform qualifies. The Algolia crawler monitors your GitHub Pages URL and re-indexes on every deploy automatically.
+:::
+
+---
+
+### Step 2 — Create an AskAI Assistant
+
+In the Algolia dashboard:
+
+1. Go to **AI Search → Assistants → Create Assistant**
+2. Select your DocSearch index (`transform-platform`)
+3. Choose an LLM provider — Algolia-hosted, OpenAI, or **BYOLLM** (bring your own)
+4. Copy the generated `assistantId`
+
+---
+
+### Step 3 — Fill in credentials
+
+Open `website/docusaurus.config.ts`. At the top of the file you'll find four constants — fill them in:
+
+```ts
+const ALGOLIA_APP_ID         = 'B1G2XXXXXXX';  // from DocSearch welcome email
+const ALGOLIA_SEARCH_API_KEY = 'xxxxxxxxxx';    // read-only search key (safe to commit)
+const ALGOLIA_INDEX_NAME     = 'transform-platform';
+const ALGOLIA_ASSISTANT_ID   = 'xxxxxxxxxx';    // from AI Search → Assistants
+```
+
+Then switch the mode flag on line 12:
+
+```ts
+// Before:
+const SEARCH_MODE: 'local' | 'algolia' = 'local';
+
+// After:
+const SEARCH_MODE: 'local' | 'algolia' = 'algolia';
+```
+
+Finally, **uncomment the two Algolia blocks** marked with `STEP 2` comments in the file (the `plugins:` array and the `themeConfig.docsearch` object).
+
+---
+
+### Step 4 — Deploy
+
+```bash
+git add website/docusaurus.config.ts
+git commit -m "feat: activate Algolia DocSearch v4 + AskAI"
+git push
+```
+
+The GitHub Actions workflow builds and deploys automatically. Algolia's crawler indexes the live site within a few minutes of the first deployment.
+
+---
+
+## Keeping the API Key Secure (Recommended)
+
+The Algolia **Search API key** is read-only and safe to commit. However, if you prefer to keep it out of version control, store it as a GitHub secret:
+
+1. Go to **GitHub → Settings → Secrets → Actions → New repository secret**
+2. Name: `ALGOLIA_SEARCH_API_KEY`, Value: your key
+
+Then in `docusaurus.config.ts`:
+
+```ts
+const ALGOLIA_SEARCH_API_KEY = process.env.ALGOLIA_SEARCH_API_KEY ?? '';
+```
+
+And in `.github/workflows/docs.yml`, pass it to the build step:
+
+```yaml
+- name: Build Docusaurus
+  run: npm run build
+  working-directory: website
+  env:
+    ALGOLIA_SEARCH_API_KEY: ${{ secrets.ALGOLIA_SEARCH_API_KEY }}
+```
+
+---
+
+## AskAI Config Reference
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `appId` | ✅ | Your Algolia Application ID |
+| `apiKey` | ✅ | Read-only Search API key |
+| `indexName` | ✅ | The index Algolia created for your site |
+| `askAi.assistantId` | ✅ | From Algolia AI Search → Assistants |
+| `askAi.sidePanel` | Optional | `true` opens AI chat in a side panel (recommended) |

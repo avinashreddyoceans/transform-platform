@@ -19,6 +19,12 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'doc',
+      id: 'ai-search',
+
+      label: '🤖 AI-Powered Search',
+    },
+    {
+      type: 'doc',
       id: 'architecture',
       label: '🏗️ Architecture',
     },
