@@ -5,16 +5,23 @@ on:
     branches: [main]
     paths:
       - 'website/**'
-  workflow_dispatch:   # allow manual trigger from GitHub UI
+  workflow_dispatch:
 
+# Required for GitHub Actions native Pages deployment
 permissions:
-  contents: write   # peaceiris/actions-gh-pages needs this to push to gh-pages branch
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one deployment at a time; cancel in-progress if a new push arrives
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
-    name: Build & Deploy Docusaurus → gh-pages
+  build:
+    name: Build Docusaurus
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,13 +41,19 @@ jobs:
         run: npm run build
         working-directory: website
 
-      - name: Deploy to gh-pages branch
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./website/build
-          # Prevents Jekyll processing — required for Docusaurus
-          enable_jekyll: false
-          # Keeps git history lean — force-pushes the branch each time
-          force_orphan: true
-          commit_message: "docs: deploy ${{ github.sha }}"
+          path: ./website/build   # hand the build output directly to GitHub Pages
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

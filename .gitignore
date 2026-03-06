@@ -57,5 +57,5 @@ test-output/
 website/node_modules/
 website/.docusaurus/
 website/build/
-# Built output — deployed to gh-pages branch by CI, never committed to main
-docs/
+# Built output — deployed via GitHub Actions Pages, never committed to main
+/docs/

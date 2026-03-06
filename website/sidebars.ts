@@ -14,6 +14,11 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'doc',
+      id: 'developer-setup',
+      label: '💻 Developer Setup',
+    },
+    {
+      type: 'doc',
       id: 'architecture',
       label: '🏗️ Architecture',
     },
