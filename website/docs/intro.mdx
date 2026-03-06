@@ -1,0 +1,224 @@
+---
+id: intro
+title: Introduction
+sidebar_position: 1
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Transform Platform
+
+**Move data between file formats and event streams — reliably, at scale, without writing pipeline code.**
+
+Transform Platform is a spec-driven transformation engine built on Kotlin and Spring Boot. Teams define a `FileSpec` — a JSON schema that describes a file format, its fields, business rules, and delivery targets — and the platform handles parsing, validation, correction, and delivery automatically. New file formats and integration routes are added through configuration, not code.
+
+---
+
+## How It Works
+
+Transform Platform handles both directions of data movement from a single spec. Whether you're ingesting partner files into your event stream or generating output files from processed events, the same `FileSpec` drives the pipeline.
+
+<div style={{overflowX: 'auto', margin: '2rem 0'}}>
+
+<div style={{display: 'flex', flexDirection: 'column', gap: '1.5rem', minWidth: 640}}>
+
+{/* Inbound */}
+<div>
+  <div style={{fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#16a34a', marginBottom: '0.6rem'}}>
+    📥 File → Events
+  </div>
+  <div style={{display: 'flex', alignItems: 'stretch', gap: 0}}>
+    {[
+      { icon: '📄', label: 'File In',  sub: 'CSV · NACHA · XML · FW', color: '#6366f1', bg: '#eef2ff' },
+      { icon: '🔍', label: 'Parse',    sub: 'FileParser via spec',    color: '#3b82f6', bg: '#eff6ff' },
+      { icon: '✏️', label: 'Correct',  sub: 'CorrectionRules',        color: '#0ea5e9', bg: '#f0f9ff' },
+      { icon: '✅', label: 'Validate', sub: 'ValidationRules',        color: '#10b981', bg: '#f0fdf4' },
+      { icon: '📤', label: 'Deliver',  sub: 'Kafka · DB · Webhook',   color: '#f59e0b', bg: '#fffbeb' },
+    ].map((step, i, arr) => (
+      <div key={step.label} style={{display: 'flex', alignItems: 'center', flex: 1}}>
+        <div style={{
+          flex: 1, background: step.bg, border: `1.5px solid ${step.color}33`,
+          borderRadius: 10, padding: '0.75rem 0.5rem', textAlign: 'center',
+        }}>
+          <div style={{fontSize: '1.4rem', lineHeight: 1}}>{step.icon}</div>
+          <div style={{fontSize: '0.78rem', fontWeight: 700, color: step.color, marginTop: 4}}>{step.label}</div>
+          <div style={{fontSize: '0.65rem', color: '#64748b', marginTop: 2, lineHeight: 1.3}}>{step.sub}</div>
+        </div>
+        {i < arr.length - 1 && (
+          <div style={{color: '#cbd5e1', fontSize: '1.1rem', padding: '0 4px', flexShrink: 0}}>›</div>
+        )}
+      </div>
+    ))}
+  </div>
+</div>
+
+{/* Spec Registry connector */}
+<div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1rem'}}>
+  <div style={{flex: 1, height: 1, background: '#e2e8f0'}} />
+  <div style={{
+    background: '#1e1b4b', color: '#a5b4fc', borderRadius: 8,
+    padding: '0.4rem 1.2rem', fontSize: '0.78rem', fontWeight: 700,
+    letterSpacing: '0.03em', whiteSpace: 'nowrap',
+  }}>
+    🗂 FileSpec Registry — single source of truth for both directions
+  </div>
+  <div style={{flex: 1, height: 1, background: '#e2e8f0'}} />
+</div>
+
+{/* Outbound */}
+<div>
+  <div style={{fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#ca8a04', marginBottom: '0.6rem'}}>
+    📤 Events → File
+  </div>
+  <div style={{display: 'flex', alignItems: 'stretch', gap: 0}}>
+    {[
+      { icon: '📨', label: 'Events In', sub: 'Kafka · REST · SFTP',     color: '#f59e0b', bg: '#fffbeb' },
+      { icon: '🔀', label: 'Map',       sub: 'FieldMappings via spec',   color: '#f97316', bg: '#fff7ed' },
+      { icon: '✏️', label: 'Correct',   sub: 'CorrectionRules',          color: '#0ea5e9', bg: '#f0f9ff' },
+      { icon: '✅', label: 'Validate',  sub: 'ValidationRules',          color: '#10b981', bg: '#f0fdf4' },
+      { icon: '📄', label: 'Generate',  sub: 'NACHA · CSV · SWIFT',      color: '#6366f1', bg: '#eef2ff' },
+    ].map((step, i, arr) => (
+      <div key={step.label} style={{display: 'flex', alignItems: 'center', flex: 1}}>
+        <div style={{
+          flex: 1, background: step.bg, border: `1.5px solid ${step.color}33`,
+          borderRadius: 10, padding: '0.75rem 0.5rem', textAlign: 'center',
+        }}>
+          <div style={{fontSize: '1.4rem', lineHeight: 1}}>{step.icon}</div>
+          <div style={{fontSize: '0.78rem', fontWeight: 700, color: step.color, marginTop: 4}}>{step.label}</div>
+          <div style={{fontSize: '0.65rem', color: '#64748b', marginTop: 2, lineHeight: 1.3}}>{step.sub}</div>
+        </div>
+        {i < arr.length - 1 && (
+          <div style={{color: '#cbd5e1', fontSize: '1.1rem', padding: '0 4px', flexShrink: 0}}>›</div>
+        )}
+      </div>
+    ))}
+  </div>
+</div>
+
+</div>
+</div>
+
+A single `FileSpec` defines both directions. Add a new file format by implementing one interface and annotating it `@Component` — the platform discovers it automatically at startup, no restarts required.
+
+---
+
+## Key Principles
+
+<div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', margin: '1.5rem 0'}}>
+
+{[
+  {
+    icon: '🎯',
+    color: '#6366f1',
+    title: 'Spec-Driven, Not Code-Driven',
+    body: 'Business rules live in a FileSpec — a JSON document that defines fields, correction logic, and validation constraints. New formats and rules are deployed as configuration changes, not code releases.'
+  },
+  {
+    icon: '⚡',
+    color: '#0ea5e9',
+    title: 'Stream-First, Memory-Safe',
+    body: 'Records flow through the pipeline as a Kotlin coroutine Flow. Files are never fully loaded into memory — a 10 GB file consumes the same heap as a 10 KB one. Processing starts on the first byte.'
+  },
+  {
+    icon: '🔌',
+    color: '#10b981',
+    title: 'Open to Extension, Closed to Modification',
+    body: 'Add a new parser, writer, or rule by implementing one interface and adding @Component. Spring auto-discovers it. No changes to the pipeline, registries, or any existing code.'
+  },
+  {
+    icon: '🛡️',
+    color: '#f59e0b',
+    title: 'Errors Stay with Records, Not the Pipeline',
+    body: 'Validation failures are attached to the record that caused them. The pipeline never stops on bad data — FATAL records are quarantined, WARNING and ERROR records flow through with their errors attached for downstream reporting.'
+  },
+  {
+    icon: '🔗',
+    color: '#ec4899',
+    title: 'Dynamic Client Integrations',
+    body: 'SFTP servers, Kafka clusters, REST webhooks, and S3 buckets are registered via API at runtime. Credential rotation and connection changes hot-reload without service restarts or redeployments.'
+  },
+  {
+    icon: '🔒',
+    color: '#8b5cf6',
+    title: 'Security Without Compromise',
+    body: 'Credentials are AES-256-GCM encrypted at rest and decrypted only in memory at connection time. Sensitive field values are masked in all logs. Credentials never appear in API responses or event payloads.'
+  },
+].map(p => (
+  <div key={p.title} style={{
+    background: 'var(--ifm-card-background-color, #fff)',
+    border: '1px solid var(--ifm-toc-border-color)',
+    borderTop: `3px solid ${p.color}`,
+    borderRadius: 12,
+    padding: '1.25rem 1.25rem 1rem',
+  }}>
+    <div style={{fontSize: '1.75rem', marginBottom: '0.6rem'}}>{p.icon}</div>
+    <div style={{fontSize: '0.9rem', fontWeight: 700, color: 'var(--ifm-heading-color)', marginBottom: '0.5rem', lineHeight: 1.3}}>{p.title}</div>
+    <div style={{fontSize: '0.85rem', color: 'var(--ifm-color-secondary-darkest, #475569)', lineHeight: 1.65}}>{p.body}</div>
+  </div>
+))}
+
+</div>
+
+---
+
+## Supported File Formats
+
+<Tabs>
+  <TabItem value="now" label="Available Now">
+
+| Format | Type | Module |
+|--------|------|--------|
+| **CSV / Delimited** | Character-separated values, any delimiter | `platform-core` |
+| **Fixed-Width** | Positional flat files (ACH, NACHA, Mainframe exports) | `platform-core` |
+| **XML** | XPath-mapped field extraction | `platform-core` |
+
+  </TabItem>
+  <TabItem value="planned" label="Planned">
+
+| Format | Type | Notes |
+|--------|------|-------|
+| **JSON** | Document and event payloads | Phase 2 |
+| **NACHA** | ACH file generation (outbound) | Phase 2 |
+| **ISO 20022** | SEPA / SWIFT XML messaging standard | Phase 2 |
+| **SWIFT MT** | Legacy SWIFT message formats | Phase 3 |
+| **EDI / AS2** | ANSI X12 and EDIFACT | Phase 3 |
+
+  </TabItem>
+</Tabs>
+
+Adding a new format requires implementing `FileParser` for inbound or `FileGenerator` for outbound — both are single-method interfaces. See [Adding a Parser](./extending/adding-a-parser) for the step-by-step guide.
+
+---
+
+## Where to Go Next
+
+<div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.875rem', margin: '1.5rem 0'}}>
+
+{[
+  { icon: '🚀', title: 'Get Started',       href: '/getting-started',  desc: 'Run the platform locally in minutes. Requires JDK 17 and Docker.' },
+  { icon: '🏗️', title: 'Architecture',      href: '/architecture',     desc: 'Understand the bidirectional pipeline and how FileSpec drives everything.' },
+  { icon: '🔗', title: 'Integrations',      href: '/integration/overview', desc: 'Dynamic SFTP, Kafka, REST, and S3 client connections at runtime.' },
+  { icon: '🔄', title: 'Events → File',     href: '/events-to-file',   desc: 'Spec-driven outbound pipeline: events → map → correct → validate → generate.' },
+  { icon: '🔌', title: 'Extend the Platform', href: '/extending/adding-a-parser', desc: 'Add a parser or writer with one interface and one annotation.' },
+  { icon: '📡', title: 'API Reference',     href: '/api-reference',    desc: 'REST endpoints for spec management, file transforms, and health checks.' },
+].map(link => (
+  <a key={link.title} href={link.href} style={{
+    display: 'block',
+    background: 'var(--ifm-card-background-color, #fff)',
+    border: '1px solid var(--ifm-toc-border-color)',
+    borderRadius: 10,
+    padding: '1rem',
+    textDecoration: 'none',
+    transition: 'border-color 0.15s, box-shadow 0.15s',
+  }}
+  onMouseOver={e => { e.currentTarget.style.borderColor = '#6366f1'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(99,102,241,0.1)'; }}
+  onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--ifm-toc-border-color)'; e.currentTarget.style.boxShadow = 'none'; }}
+  >
+    <div style={{fontSize: '1.4rem', marginBottom: '0.4rem'}}>{link.icon}</div>
+    <div style={{fontSize: '0.88rem', fontWeight: 700, color: 'var(--ifm-heading-color)', marginBottom: '0.35rem'}}>{link.title}</div>
+    <div style={{fontSize: '0.8rem', color: 'var(--ifm-color-secondary-darkest, #64748b)', lineHeight: 1.5}}>{link.desc}</div>
+  </a>
+))}
+
+</div>
