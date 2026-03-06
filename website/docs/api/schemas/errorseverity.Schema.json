@@ -1,0 +1,1 @@
+{"schema":{"type":"string","enum":["WARNING","ERROR","FATAL"],"description":"- `WARNING` — record flows through with error attached\n- `ERROR` — controlled by `skipInvalidRecords` flag\n- `FATAL` — record always quarantined, `failedRecords` incremented\n","title":"ErrorSeverity"},"schemaType":"response"}

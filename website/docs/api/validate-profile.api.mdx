@@ -1,0 +1,75 @@
+---
+id: validate-profile
+title: "Validate a Profile config"
+description: "Validates a Profile request body without persisting it. Checks:"
+sidebar_label: "Validate a Profile config"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "post api-method"
+info_path: api/transform-platform-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Validate a Profile config"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"post"}
+  path={"/api/profiles/{profileId}/validate"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Validates a Profile request body without persisting it. Checks:
+- All referenced integrations exist and are reachable
+- All referenced FileSpecs exist
+- Cron expressions are valid
+- Action execution order is consistent
+- No circular action dependencies
+
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./validate-profile.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./validate-profile.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./validate-profile.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

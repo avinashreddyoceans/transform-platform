@@ -1,0 +1,2348 @@
+openapi: 3.0.3
+info:
+  title: Transform Platform API
+  description: |
+    Enterprise-grade, spec-driven file ↔ event transformation engine.
+
+    Transform Platform exposes a REST API for managing **FileSpecs**, triggering
+    **file-to-events** and **events-to-file** pipelines, managing **client integrations**
+    (SFTP, Kafka, REST, S3), and monitoring platform health.
+
+    ## Authentication
+    All endpoints require a Bearer token passed in the `Authorization` header:
+    ```
+    Authorization: Bearer <your-token>
+    ```
+
+    ## Error Format
+    All error responses follow the RFC 7807 Problem Details format:
+    ```json
+    {
+      "type": "https://transform-platform/errors/spec-not-found",
+      "title": "FileSpec Not Found",
+      "status": 404,
+      "detail": "No FileSpec found with id 'acme-payments-v2'",
+      "instance": "/api/specs/acme-payments-v2"
+    }
+    ```
+  version: 1.0.0
+  contact:
+    name: Transform Platform
+    url: https://avinashreddyoceans.github.io/transform-platform/
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://api.transform-platform.example.com
+    description: Production
+
+tags:
+  - name: Profiles
+    description: |
+      Manage **Profiles** — the aggregate root that wires a Window, Actions,
+      and Integration Channels into a complete, deployable batch workflow.
+      Profiles are version-controlled, hot-reloadable, and require no code
+      changes to create or update.
+  - name: Windows
+    description: |
+      Manage **Window** configurations and runtime instances. A Window defines
+      the time-bounded bucket for collecting events. Each cron cycle creates a
+      `WindowInstance` that tracks state, event counts, and action results.
+  - name: Actions
+    description: |
+      Manage **Actions** — condition-driven units of work attached to a Profile.
+      Actions fire on `ON_OPEN`, `ON_CLOSING`, `RECURRING_WHILE_OPEN`,
+      `ON_EMPTY_CLOSE`, `ON_THRESHOLD_REACHED`, `ON_ERROR`, and more.
+  - name: FileSpecs
+    description: |
+      Manage **FileSpec** definitions — the single source of truth for every
+      transformation pipeline. A FileSpec encodes field definitions, correction
+      rules, validation constraints, and optional outbound configuration.
+  - name: Transform
+    description: |
+      Trigger transformation pipelines. The **File → Events** pipeline parses
+      an uploaded file, applies correction and validation, and writes records
+      to the configured destination. The **Events → File** pipeline accepts a
+      JSON event batch, maps fields, applies rules, and generates an output file.
+  - name: Integrations
+    description: |
+      Manage dynamic client integrations — SFTP servers, Kafka clusters, REST
+      webhooks, and S3 buckets. Credentials are AES-256-GCM encrypted at rest.
+      Connection changes hot-reload without service restarts.
+  - name: Credentials
+    description: |
+      Store and rotate encrypted credentials. Credentials are decrypted only
+      in memory at connection time and never appear in API responses.
+  - name: Health
+    description: Platform health and readiness probes.
+
+paths:
+
+  # ─── Profiles ───────────────────────────────────────────────────────────────
+
+  /api/profiles:
+    get:
+      tags: [Profiles]
+      operationId: listProfiles
+      summary: List all Profiles
+      description: Returns all Profiles, optionally filtered by clientId or status.
+      parameters:
+        - name: clientId
+          in: query
+          schema:
+            type: string
+          description: Filter by client/tenant
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ProfileStatus'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Paginated list of Profiles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfProfileSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Profiles]
+      operationId: createProfile
+      summary: Create a Profile
+      description: |
+        Register a new Profile in `DRAFT` status. The Profile will not schedule
+        any windows until explicitly enabled via `POST /api/profiles/{id}/enable`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileRequest'
+            example:
+              id: ACME-PAYMENTS-DAILY
+              name: ACME Payments Daily Batch
+              clientId: acme-corp
+              status: DRAFT
+              window:
+                id: acme-payments-window
+                frequency:
+                  startCronExpression: "0 0 8 * * MON-FRI ?"
+                  endCronExpression: "0 0 17 * * MON-FRI ?"
+                  recurringInterval: PT1H
+                autoCreateDefaultWindow: false
+                timezone: America/New_York
+              actions:
+                - id: ingest-files
+                  condition: RECURRING_WHILE_OPEN
+                  type: FILE_TO_EVENTS
+                  executionOrder: 1
+                  config:
+                    specId: acme-payments-v2
+                    integrationId: int-acme-sftp-prod
+                    onSuccess: ARCHIVE
+                - id: generate-ach
+                  condition: ON_CLOSING
+                  type: EVENTS_TO_FILE
+                  executionOrder: 1
+                  config:
+                    specId: acme-ach-outbound
+                    integrationId: int-acme-sftp-fed
+              integrations:
+                - int-acme-sftp-prod
+                - int-acme-sftp-fed
+      responses:
+        '201':
+          description: Profile created in DRAFT status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/profiles/{profileId}:
+    parameters:
+      - $ref: '#/components/parameters/ProfileIdParam'
+
+    get:
+      tags: [Profiles]
+      operationId: getProfile
+      summary: Get a Profile
+      responses:
+        '200':
+          description: Profile definition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags: [Profiles]
+      operationId: updateProfile
+      summary: Update a Profile
+      description: |
+        Full replacement of the Profile definition. Increments the `version` field
+        and stores a revision snapshot. Active windows are not interrupted — new
+        config takes effect on the next window open.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileRequest'
+      responses:
+        '200':
+          description: Updated Profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    delete:
+      tags: [Profiles]
+      operationId: deleteProfile
+      summary: Delete a Profile
+      description: |
+        Deletes the Profile and cancels all scheduled windows.
+        In-flight `WindowInstance` records are preserved for audit purposes.
+      responses:
+        '204':
+          description: Profile deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/profiles/{profileId}/enable:
+    post:
+      tags: [Profiles]
+      operationId: enableProfile
+      summary: Enable a Profile
+      description: |
+        Transitions status from `DRAFT` or `DISABLED` to `ENABLED`.
+        Immediately schedules window cron jobs and begins monitoring integration channels.
+      parameters:
+        - $ref: '#/components/parameters/ProfileIdParam'
+      responses:
+        '200':
+          description: Profile enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/profiles/{profileId}/disable:
+    post:
+      tags: [Profiles]
+      operationId: disableProfile
+      summary: Disable a Profile
+      description: |
+        Pauses window scheduling without deleting configuration.
+        In-flight windows will complete normally.
+      parameters:
+        - $ref: '#/components/parameters/ProfileIdParam'
+      responses:
+        '200':
+          description: Profile disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/profiles/{profileId}/validate:
+    post:
+      tags: [Profiles]
+      operationId: validateProfile
+      summary: Validate a Profile config
+      description: |
+        Validates a Profile request body without persisting it. Checks:
+        - All referenced integrations exist and are reachable
+        - All referenced FileSpecs exist
+        - Cron expressions are valid
+        - Action execution order is consistent
+        - No circular action dependencies
+      parameters:
+        - $ref: '#/components/parameters/ProfileIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileRequest'
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationReport'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/profiles/{profileId}/rollback:
+    post:
+      tags: [Profiles]
+      operationId: rollbackProfile
+      summary: Rollback to a previous version
+      description: Restores a previous Profile revision. Creates a new version entry pointing to the old snapshot.
+      parameters:
+        - $ref: '#/components/parameters/ProfileIdParam'
+        - name: version
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: Version number to restore
+      responses:
+        '200':
+          description: Rolled-back Profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/profiles/{profileId}/history:
+    get:
+      tags: [Profiles]
+      operationId: getProfileHistory
+      summary: Get Profile revision history
+      parameters:
+        - $ref: '#/components/parameters/ProfileIdParam'
+      responses:
+        '200':
+          description: Ordered list of revisions (newest first)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProfileRevision'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/profiles/{profileId}/trigger:
+    post:
+      tags: [Profiles]
+      operationId: manualTrigger
+      summary: Manually trigger ON_MANUAL_TRIGGER actions
+      description: |
+        Fires all `ON_MANUAL_TRIGGER` Actions for the current open window,
+        or creates a one-off window if no window is currently open.
+      parameters:
+        - $ref: '#/components/parameters/ProfileIdParam'
+      responses:
+        '200':
+          description: Action results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActionResult'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ─── Windows ────────────────────────────────────────────────────────────────
+
+  /api/windows:
+    get:
+      tags: [Windows]
+      operationId: listWindowInstances
+      summary: List window instances
+      description: Returns paginated window instances across all profiles or for a specific profile.
+      parameters:
+        - name: profileId
+          in: query
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            $ref: '#/components/schemas/WindowState'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Paginated window instances
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfWindowInstance'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/windows/{instanceId}:
+    parameters:
+      - name: instanceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Window instance UUID
+
+    get:
+      tags: [Windows]
+      operationId: getWindowInstance
+      summary: Get a window instance
+      responses:
+        '200':
+          description: Window instance detail with all action results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WindowInstance'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/windows/{instanceId}/close:
+    post:
+      tags: [Windows]
+      operationId: forceCloseWindow
+      summary: Force-close an open window
+      description: |
+        Immediately transitions the window to `CLOSING` and fires all `ON_CLOSING` actions.
+        Useful for emergency flushes or when a window is stuck.
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Window instance after close
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WindowInstance'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/windows/{instanceId}/reprocess:
+    post:
+      tags: [Windows]
+      operationId: reprocessWindow
+      summary: Reprocess a closed window
+      description: |
+        Re-runs all actions for a `CLOSED` window. Useful for reprocessing after
+        fixing a downstream system outage or a misconfigured FileSpec.
+        Creates a new `WindowInstance` linked to the original for audit continuity.
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: conditions
+          in: query
+          description: "Comma-separated list of conditions to re-run (default: all)"
+          schema:
+            type: string
+            example: ON_CLOSING
+      responses:
+        '202':
+          description: Reprocessing started; returns new instance ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WindowInstance'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/windows/{instanceId}/events:
+    get:
+      tags: [Windows]
+      operationId: listWindowEvents
+      summary: List events collected in a window
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Events collected in this window
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfWindowEvent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ─── Actions ────────────────────────────────────────────────────────────────
+
+  /api/profiles/{profileId}/actions:
+    parameters:
+      - $ref: '#/components/parameters/ProfileIdParam'
+
+    get:
+      tags: [Actions]
+      operationId: listActions
+      summary: List actions for a Profile
+      description: Returns all actions defined on a Profile, sorted by condition then executionOrder.
+      parameters:
+        - name: condition
+          in: query
+          schema:
+            $ref: '#/components/schemas/ActionCondition'
+      responses:
+        '200':
+          description: List of actions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Action'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Actions]
+      operationId: addAction
+      summary: Add an action to a Profile
+      description: |
+        Adds a new action without requiring a full Profile update.
+        The new action takes effect on the next window open.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActionRequest'
+      responses:
+        '201':
+          description: Action added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Action'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/profiles/{profileId}/actions/{actionId}:
+    parameters:
+      - $ref: '#/components/parameters/ProfileIdParam'
+      - name: actionId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Action ID
+
+    put:
+      tags: [Actions]
+      operationId: updateAction
+      summary: Update an action
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActionRequest'
+      responses:
+        '200':
+          description: Updated action
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Action'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    delete:
+      tags: [Actions]
+      operationId: deleteAction
+      summary: Remove an action from a Profile
+      responses:
+        '204':
+          description: Action removed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/profiles/{profileId}/actions/{actionId}/enable:
+    post:
+      tags: [Actions]
+      operationId: enableAction
+      summary: Enable a disabled action
+      parameters:
+        - $ref: '#/components/parameters/ProfileIdParam'
+        - name: actionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Action enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Action'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/profiles/{profileId}/actions/{actionId}/disable:
+    post:
+      tags: [Actions]
+      operationId: disableAction
+      summary: Disable an action without removing it
+      parameters:
+        - $ref: '#/components/parameters/ProfileIdParam'
+        - name: actionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Action disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Action'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ─── FileSpecs ──────────────────────────────────────────────────────────────
+
+  /api/specs:
+    get:
+      tags: [FileSpecs]
+      operationId: listSpecs
+      summary: List all FileSpecs
+      description: Returns a paginated list of all registered FileSpec definitions.
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - name: format
+          in: query
+          description: Filter by file format
+          schema:
+            $ref: '#/components/schemas/FileFormat'
+      responses:
+        '200':
+          description: Paginated list of FileSpecs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageOfFileSpecSummary'
+              example:
+                content:
+                  - id: acme-payments-v2
+                    name: ACME Payments CSV
+                    format: CSV
+                    version: 2
+                    fieldCount: 12
+                    createdAt: '2024-11-01T09:00:00Z'
+                  - id: nacha-ach-outbound
+                    name: NACHA ACH Outbound
+                    format: FIXED_WIDTH
+                    version: 1
+                    fieldCount: 28
+                    createdAt: '2024-10-15T14:30:00Z'
+                page: 0
+                size: 20
+                totalElements: 2
+                totalPages: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [FileSpecs]
+      operationId: createSpec
+      summary: Create a FileSpec
+      description: |
+        Register a new FileSpec. The spec drives both the inbound
+        (File → Events) and optional outbound (Events → File) pipelines.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FileSpecRequest'
+            example:
+              id: acme-payments-v2
+              name: ACME Payments CSV
+              format: CSV
+              delimiter: ','
+              hasHeader: true
+              skipInvalidRecords: false
+              fields:
+                - name: transactionId
+                  index: 0
+                  type: STRING
+                  required: true
+                - name: amount
+                  index: 1
+                  type: DECIMAL
+                  required: true
+                  validations:
+                    - type: RANGE
+                      min: 0.01
+                      max: 1000000.00
+                - name: currency
+                  index: 2
+                  type: STRING
+                  required: true
+                  validations:
+                    - type: ALLOWED_VALUES
+                      values: [USD, EUR, GBP, CAD]
+              correctionRules:
+                - type: TRIM
+                  fields: ['*']
+                  applyOrder: 1
+                - type: UPPERCASE
+                  fields: [currency]
+                  applyOrder: 2
+              validationRules:
+                - type: NOT_EMPTY
+                  fields: [transactionId, amount, currency]
+      responses:
+        '201':
+          description: FileSpec created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileSpec'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/specs/{specId}:
+    parameters:
+      - $ref: '#/components/parameters/SpecIdParam'
+
+    get:
+      tags: [FileSpecs]
+      operationId: getSpec
+      summary: Get a FileSpec
+      description: Retrieve the full definition of a FileSpec by its ID.
+      responses:
+        '200':
+          description: FileSpec definition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileSpec'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags: [FileSpecs]
+      operationId: updateSpec
+      summary: Replace a FileSpec
+      description: |
+        Replace the entire FileSpec definition. This is a full replacement —
+        fields and rules not present in the request body will be removed.
+        To add an outbound pipeline to an existing spec, include an `outbound` block.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FileSpecRequest'
+      responses:
+        '200':
+          description: Updated FileSpec
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileSpec'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    delete:
+      tags: [FileSpecs]
+      operationId: deleteSpec
+      summary: Delete a FileSpec
+      description: |
+        Delete a FileSpec. This operation is idempotent — deleting a
+        non-existent spec returns 204.
+      responses:
+        '204':
+          description: Spec deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ─── Transform ──────────────────────────────────────────────────────────────
+
+  /api/transform/{specId}/file:
+    post:
+      tags: [Transform]
+      operationId: transformFile
+      summary: File → Events (inbound pipeline)
+      description: |
+        Upload a file and run it through the full **File → Events** pipeline:
+
+        1. **Parse** — decode records using the spec's `FileParser`
+        2. **Correct** — apply `CorrectionRule` list in `applyOrder`
+        3. **Validate** — check `ValidationRule` list and `FieldSpec` constraints
+        4. **Deliver** — write passing records to the spec's `PipelineDestination`
+
+        FATAL records are quarantined. WARNING/ERROR records flow through with
+        errors attached.
+      parameters:
+        - $ref: '#/components/parameters/SpecIdParam'
+        - name: destination
+          in: query
+          description: Override the spec's default destination (for testing)
+          schema:
+            type: string
+            enum: [kafka, database, webhook, discard]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The file to transform
+                correlationId:
+                  type: string
+                  description: Optional correlation ID for tracing
+      responses:
+        '200':
+          description: Processing complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessingResult'
+              example:
+                specId: acme-payments-v2
+                correlationId: req-abc-123
+                totalRecords: 1000
+                processedRecords: 997
+                failedRecords: 3
+                skippedRecords: 0
+                durationMs: 342
+                errors:
+                  - recordIndex: 42
+                    field: amount
+                    severity: FATAL
+                    message: "Value '-99.99' violates RANGE constraint [0.01, 1000000.00]"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/transform/{specId}/events:
+    post:
+      tags: [Transform]
+      operationId: transformEvents
+      summary: Events → File (outbound pipeline)
+      description: |
+        Accept a batch of events and run the **Events → File** pipeline:
+
+        1. **Map** — project event fields → `FileRecord` using the spec's `FieldMapping` list
+        2. **Correct** — apply `outbound.correctionRules`
+        3. **Validate** — apply `outbound.validationRules`
+        4. **Generate** — produce a file in the spec's `outbound.format`
+
+        The spec must have an `outbound` block configured. Returns the generated
+        file as a binary stream.
+      parameters:
+        - $ref: '#/components/parameters/SpecIdParam'
+        - name: Accept
+          in: header
+          description: Desired output content type (e.g. `text/csv`, `application/octet-stream`)
+          schema:
+            type: string
+            default: application/octet-stream
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventBatchRequest'
+            example:
+              correlationId: batch-20241115-001
+              events:
+                - transactionId: TXN-001
+                  amount: 150.00
+                  currency: USD
+                  accountNumber: '123456789'
+                  routingNumber: '021000021'
+                  effectiveDate: '2024-11-15'
+                - transactionId: TXN-002
+                  amount: 75.50
+                  currency: USD
+                  accountNumber: '987654321'
+                  routingNumber: '021000021'
+                  effectiveDate: '2024-11-15'
+      responses:
+        '200':
+          description: Generated file stream
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            text/csv:
+              schema:
+                type: string
+            text/plain:
+              schema:
+                type: string
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              example: 'attachment; filename="output-20241115-batch-001.csv"'
+            X-Correlation-Id:
+              schema:
+                type: string
+            X-Records-Written:
+              schema:
+                type: integer
+            X-Records-Failed:
+              schema:
+                type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ─── Integrations ───────────────────────────────────────────────────────────
+
+  /api/integrations:
+    get:
+      tags: [Integrations]
+      operationId: listIntegrations
+      summary: List integrations
+      description: Returns all registered client integrations.
+      parameters:
+        - name: type
+          in: query
+          description: Filter by integration type
+          schema:
+            $ref: '#/components/schemas/IntegrationType'
+        - name: clientId
+          in: query
+          description: Filter by client
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of integrations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IntegrationSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Integrations]
+      operationId: createIntegration
+      summary: Register an integration
+      description: |
+        Register a new client integration. The platform immediately tests
+        connectivity and returns the connection status.
+
+        Credentials are encrypted with AES-256-GCM before being stored.
+        They are never returned in API responses.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntegrationRequest'
+            examples:
+              sftp:
+                summary: SFTP server
+                value:
+                  clientId: acme-corp
+                  type: SFTP
+                  name: ACME Production SFTP
+                  config:
+                    host: sftp.acme-corp.com
+                    port: 22
+                    username: transform-svc
+                    remoteDirectory: /outbound/payments
+                    filePattern: '*.csv'
+                  credentialRef: acme-sftp-prod
+              kafka:
+                summary: Kafka cluster
+                value:
+                  clientId: acme-corp
+                  type: KAFKA
+                  name: ACME Kafka Production
+                  config:
+                    bootstrapServers: kafka-prod-1:9092,kafka-prod-2:9092
+                    topic: payments.inbound.raw
+                    groupId: transform-platform
+                    securityProtocol: SASL_SSL
+                  credentialRef: acme-kafka-prod
+      responses:
+        '201':
+          description: Integration registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Integration'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/integrations/{integrationId}:
+    parameters:
+      - name: integrationId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Integration ID
+
+    get:
+      tags: [Integrations]
+      operationId: getIntegration
+      summary: Get an integration
+      responses:
+        '200':
+          description: Integration details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Integration'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags: [Integrations]
+      operationId: updateIntegration
+      summary: Update an integration
+      description: |
+        Update integration configuration. Changes hot-reload — no service
+        restart or redeployment required. Provide `credentialRef` only when
+        rotating credentials.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntegrationRequest'
+      responses:
+        '200':
+          description: Updated integration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Integration'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    delete:
+      tags: [Integrations]
+      operationId: deleteIntegration
+      summary: Delete an integration
+      responses:
+        '204':
+          description: Integration deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/integrations/{integrationId}/test:
+    post:
+      tags: [Integrations]
+      operationId: testIntegration
+      summary: Test connectivity
+      description: |
+        Test the connectivity of a registered integration without triggering
+        a pipeline. For SFTP, attempts to list the remote directory. For Kafka,
+        attempts to connect and describe the topic. For REST, sends a HEAD request.
+      parameters:
+        - name: integrationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Connectivity test result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectivityTestResult'
+              example:
+                integrationId: int-acme-sftp-prod
+                status: CONNECTED
+                latencyMs: 128
+                message: Successfully listed 3 files in /outbound/payments
+                testedAt: '2024-11-15T10:30:00Z'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ─── Credentials ────────────────────────────────────────────────────────────
+
+  /api/credentials:
+    post:
+      tags: [Credentials]
+      operationId: storeCredential
+      summary: Store a credential
+      description: |
+        Encrypt and store a credential set. Credentials are AES-256-GCM
+        encrypted before storage. The plaintext values are never stored
+        and never returned in API responses.
+
+        A `credentialRef` is returned — use this when registering integrations.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialRequest'
+            examples:
+              sftp_password:
+                summary: SFTP password credential
+                value:
+                  ref: acme-sftp-prod
+                  type: PASSWORD
+                  values:
+                    password: s3cur3P@ssw0rd!
+              sftp_key:
+                summary: SFTP private key credential
+                value:
+                  ref: acme-sftp-prod-key
+                  type: SSH_PRIVATE_KEY
+                  values:
+                    privateKey: '-----BEGIN RSA PRIVATE KEY-----\n...'
+                    passphrase: optional-passphrase
+              kafka_sasl:
+                summary: Kafka SASL credential
+                value:
+                  ref: acme-kafka-prod
+                  type: SASL
+                  values:
+                    username: transform-svc
+                    password: kafkaS3cr3t
+      responses:
+        '201':
+          description: Credential stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResponse'
+              example:
+                ref: acme-sftp-prod
+                type: PASSWORD
+                createdAt: '2024-11-15T09:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/credentials/{ref}:
+    parameters:
+      - name: ref
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Credential reference name
+
+    delete:
+      tags: [Credentials]
+      operationId: deleteCredential
+      summary: Delete a credential
+      description: Permanently delete an encrypted credential. Integrations using this credential will fail connectivity tests until a new credential is stored.
+      responses:
+        '204':
+          description: Credential deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags: [Credentials]
+      operationId: rotateCredential
+      summary: Rotate a credential
+      description: Replace the encrypted values for an existing credential reference. Integrations using this ref will use the new values on the next connection attempt — no restarts required.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialRequest'
+      responses:
+        '200':
+          description: Credential rotated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ─── Health ─────────────────────────────────────────────────────────────────
+
+  /actuator/health:
+    get:
+      tags: [Health]
+      operationId: health
+      summary: Health check
+      description: Spring Boot Actuator health endpoint. Returns component-level health status.
+      security: []
+      responses:
+        '200':
+          description: Application is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: UP
+                components:
+                  db:
+                    status: UP
+                    details:
+                      database: PostgreSQL
+                      validationQuery: isValid()
+                  kafka:
+                    status: UP
+                  diskSpace:
+                    status: UP
+                    details:
+                      total: 107374182400
+                      free: 45432135680
+                      threshold: 10485760
+        '503':
+          description: Application is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /actuator/health/readiness:
+    get:
+      tags: [Health]
+      operationId: readiness
+      summary: Readiness probe
+      description: Kubernetes readiness probe. Returns 200 when the application is ready to serve traffic.
+      security: []
+      responses:
+        '200':
+          description: Ready
+        '503':
+          description: Not ready
+
+  /actuator/health/liveness:
+    get:
+      tags: [Health]
+      operationId: liveness
+      summary: Liveness probe
+      description: Kubernetes liveness probe. Returns 200 as long as the application process is alive.
+      security: []
+      responses:
+        '200':
+          description: Alive
+        '503':
+          description: Not alive
+
+# ─── Components ─────────────────────────────────────────────────────────────
+
+components:
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ProfileIdParam:
+      name: profileId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Profile ID (e.g. `ACME-PAYMENTS-DAILY`)
+
+    SpecIdParam:
+      name: specId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: FileSpec ID (e.g. `acme-payments-v2`)
+
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+      description: Zero-based page number
+
+    SizeParam:
+      name: size
+      in: query
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 100
+      description: Page size
+
+  responses:
+    BadRequest:
+      description: Invalid request body or parameters
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: https://transform-platform/errors/validation-failed
+            title: Validation Failed
+            status: 400
+            detail: "Field 'format' is required"
+            instance: /api/specs
+
+    Unauthorized:
+      description: Missing or invalid Bearer token
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: https://transform-platform/errors/spec-not-found
+            title: FileSpec Not Found
+            status: 404
+            detail: "No FileSpec found with id 'acme-payments-v2'"
+            instance: /api/specs/acme-payments-v2
+
+    Conflict:
+      description: Resource already exists
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+    UnprocessableEntity:
+      description: Spec found but pipeline could not process the input
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+  schemas:
+
+    # ── Profile ───────────────────────────────────────────────────────────────
+
+    ProfileStatus:
+      type: string
+      enum: [DRAFT, ENABLED, DISABLED, ARCHIVED]
+      description: |
+        - `DRAFT` — not yet deployed; safe to edit
+        - `ENABLED` — window scheduling active
+        - `DISABLED` — scheduling paused; manual triggers still work
+        - `ARCHIVED` — retired; read-only
+
+    ProfileSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          example: ACME-PAYMENTS-DAILY
+        name:
+          type: string
+        clientId:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProfileStatus'
+        version:
+          type: integer
+        actionCount:
+          type: integer
+        nextWindowOpenAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PageOfProfileSummary:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileSummary'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+
+    WindowFrequency:
+      type: object
+      required: [startCronExpression, endCronExpression]
+      properties:
+        startCronExpression:
+          type: string
+          description: 6-field Spring cron expression that OPENS the window
+          example: "0 0/30 * * * ?"
+        endCronExpression:
+          type: string
+          description: 6-field Spring cron expression that CLOSES the window
+          example: "0 29/30 * * * ?"
+        recurringInterval:
+          type: string
+          description: ISO-8601 duration for RECURRING_WHILE_OPEN actions
+          example: PT5M
+
+    WindowConfigSchema:
+      type: object
+      required: [id, frequency]
+      properties:
+        id:
+          type: string
+          example: acme-payments-window
+        frequency:
+          $ref: '#/components/schemas/WindowFrequency'
+        autoCreateDefaultWindow:
+          type: boolean
+          default: true
+          description: Create a window instance even if no events are collected
+        maxDurationMinutes:
+          type: integer
+          description: Safety cap — force-close if window stays open beyond this duration
+        timezone:
+          type: string
+          default: UTC
+          example: America/New_York
+        deduplication:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+              default: true
+            strategy:
+              type: string
+              enum: [PAYLOAD_HASH, FIELD_BASED, NONE]
+              default: PAYLOAD_HASH
+            fields:
+              type: array
+              items:
+                type: string
+              description: Field names for FIELD_BASED strategy
+
+    ActionCondition:
+      type: string
+      enum:
+        - ON_OPEN
+        - ON_CLOSING
+        - RECURRING_WHILE_OPEN
+        - ON_EMPTY_CLOSE
+        - ON_THRESHOLD_REACHED
+        - ON_ERROR
+        - ON_MANUAL_TRIGGER
+        - ON_DUPLICATE_DETECTED
+      description: |
+        - `ON_OPEN` — fires when the window opens
+        - `ON_CLOSING` — fires when the window closes
+        - `RECURRING_WHILE_OPEN` — fires on `recurringInterval` while window is open
+        - `ON_EMPTY_CLOSE` — fires at close if zero events were collected
+        - `ON_THRESHOLD_REACHED` — fires when event count crosses a configured threshold
+        - `ON_ERROR` — fires when any action in the chain fails
+        - `ON_MANUAL_TRIGGER` — fires only via explicit API call
+        - `ON_DUPLICATE_DETECTED` — fires when a duplicate event is rejected
+
+    ActionType:
+      type: string
+      enum:
+        - FILE_TO_EVENTS
+        - EVENTS_TO_FILE
+        - NOTIFY
+        - VALIDATE_COMPLETENESS
+        - TRANSFORM_AND_ROUTE
+        - ARCHIVE
+        - INVOKE_EXTERNAL
+
+    ActionStatus:
+      type: string
+      enum: [PENDING, RUNNING, SUCCESS, FAILED, SKIPPED, TIMEOUT]
+
+    ActionRequest:
+      type: object
+      required: [id, condition, type, executionOrder, config]
+      properties:
+        id:
+          type: string
+          example: generate-ach-file
+        condition:
+          $ref: '#/components/schemas/ActionCondition'
+        type:
+          $ref: '#/components/schemas/ActionType'
+        executionOrder:
+          type: integer
+          description: Execution order within the same condition (ascending)
+          example: 1
+        enabled:
+          type: boolean
+          default: true
+        continueOnFailure:
+          type: boolean
+          default: false
+          description: If false, the action chain stops and ON_ERROR fires when this action fails
+        timeoutMs:
+          type: integer
+          default: 300000
+        config:
+          type: object
+          description: |
+            Type-specific configuration. Shape depends on `type`:
+            - `FILE_TO_EVENTS` → `{ specId, integrationId, onSuccess, onFailure }`
+            - `EVENTS_TO_FILE` → `{ specId, integrationId, emptyFilePolicy, batchSize }`
+            - `NOTIFY` → `{ channel, template, recipients, severity }`
+            - `VALIDATE_COMPLETENESS` → `{ expectedCountSource, tolerance, onMismatch }`
+            - `TRANSFORM_AND_ROUTE` → `{ specId, routes, fanOutStrategy }`
+            - `ARCHIVE` → `{ integrationId, pathTemplate, compression, retentionDays }`
+            - `INVOKE_EXTERNAL` → `{ integrationId, method, pathTemplate, bodyTemplate, retry }`
+          additionalProperties: true
+
+    Action:
+      allOf:
+        - $ref: '#/components/schemas/ActionRequest'
+        - type: object
+          properties:
+            profileId:
+              type: string
+            tags:
+              type: array
+              items:
+                type: string
+
+    ActionResult:
+      type: object
+      properties:
+        actionId:
+          type: string
+        condition:
+          $ref: '#/components/schemas/ActionCondition'
+        type:
+          $ref: '#/components/schemas/ActionType'
+        status:
+          $ref: '#/components/schemas/ActionStatus'
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        recordsProcessed:
+          type: integer
+          format: int64
+        error:
+          type: string
+        retryCount:
+          type: integer
+
+    ProfileRequest:
+      type: object
+      required: [id, name, clientId, window, actions]
+      properties:
+        id:
+          type: string
+          description: Unique identifier (SCREAMING_SNAKE_CASE recommended)
+          example: ACME-PAYMENTS-DAILY
+        name:
+          type: string
+          example: ACME Payments Daily Batch
+        description:
+          type: string
+        clientId:
+          type: string
+          example: acme-corp
+        status:
+          $ref: '#/components/schemas/ProfileStatus'
+        window:
+          $ref: '#/components/schemas/WindowConfigSchema'
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActionRequest'
+          minItems: 1
+        integrations:
+          type: array
+          items:
+            type: string
+          description: Integration IDs referenced by this Profile's actions
+        tags:
+          type: array
+          items:
+            type: string
+          example: [ach, settlement, daily]
+
+    Profile:
+      allOf:
+        - $ref: '#/components/schemas/ProfileRequest'
+        - type: object
+          properties:
+            version:
+              type: integer
+              description: Auto-incremented on each PUT
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+            createdBy:
+              type: string
+            nextWindowOpenAt:
+              type: string
+              format: date-time
+
+    ProfileRevision:
+      type: object
+      properties:
+        profileId:
+          type: string
+        version:
+          type: integer
+        changedBy:
+          type: string
+        changedAt:
+          type: string
+          format: date-time
+        changeDescription:
+          type: string
+        snapshot:
+          $ref: '#/components/schemas/Profile'
+
+    ValidationReport:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+        warnings:
+          type: array
+          items:
+            type: string
+
+    # ── Window Instance ───────────────────────────────────────────────────────
+
+    WindowState:
+      type: string
+      enum: [PENDING, OPENING, OPEN, CLOSING, CLOSED, ERROR]
+
+    WindowInstance:
+      type: object
+      properties:
+        instanceId:
+          type: string
+          format: uuid
+        windowConfigId:
+          type: string
+        profileId:
+          type: string
+        state:
+          $ref: '#/components/schemas/WindowState'
+        openedAt:
+          type: string
+          format: date-time
+        closedAt:
+          type: string
+          format: date-time
+        eventCount:
+          type: integer
+          format: int64
+        lastEventAt:
+          type: string
+          format: date-time
+        actionResults:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActionResult'
+        error:
+          type: string
+
+    PageOfWindowInstance:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/WindowInstance'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+
+    WindowEvent:
+      type: object
+      description: A single event collected into a window
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        instanceId:
+          type: string
+          format: uuid
+        checksum:
+          type: string
+        receivedAt:
+          type: string
+          format: date-time
+        source:
+          type: string
+          description: Integration channel that delivered this event
+        payload:
+          type: object
+          additionalProperties: true
+
+    PageOfWindowEvent:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/WindowEvent'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+
+    # ── Enums ──────────────────────────────────────────────────────────────────
+
+    FileFormat:
+      type: string
+      enum: [CSV, FIXED_WIDTH, XML, JSON, NACHA, ISO20022, SWIFT_MT, EDI]
+      description: File format supported by the platform
+
+    FieldType:
+      type: string
+      enum: [STRING, INTEGER, DECIMAL, DATE, DATETIME, BOOLEAN]
+
+    ErrorSeverity:
+      type: string
+      enum: [WARNING, ERROR, FATAL]
+      description: |
+        - `WARNING` — record flows through with error attached
+        - `ERROR` — controlled by `skipInvalidRecords` flag
+        - `FATAL` — record always quarantined, `failedRecords` incremented
+
+    IntegrationType:
+      type: string
+      enum: [SFTP, KAFKA, REST, S3]
+
+    ConnectionStatus:
+      type: string
+      enum: [CONNECTED, FAILED, TIMEOUT, AUTH_ERROR]
+
+    CredentialType:
+      type: string
+      enum: [PASSWORD, SSH_PRIVATE_KEY, API_KEY, SASL, AWS_ACCESS_KEY, OAUTH2_CLIENT]
+
+    # ── FileSpec ───────────────────────────────────────────────────────────────
+
+    FileSpecSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          example: acme-payments-v2
+        name:
+          type: string
+          example: ACME Payments CSV
+        format:
+          $ref: '#/components/schemas/FileFormat'
+        version:
+          type: integer
+          example: 2
+        fieldCount:
+          type: integer
+          example: 12
+        hasOutbound:
+          type: boolean
+          description: Whether this spec has an outbound pipeline configured
+        createdAt:
+          type: string
+          format: date-time
+
+    PageOfFileSpecSummary:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileSpecSummary'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+
+    FieldSpec:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+          description: Logical field name used in rules and mappings
+          example: transactionId
+        index:
+          type: integer
+          description: Column index (CSV / Fixed-Width)
+          example: 0
+        start:
+          type: integer
+          description: Start position for Fixed-Width files (1-based)
+        length:
+          type: integer
+          description: Field length for Fixed-Width files
+        xpathExpression:
+          type: string
+          description: XPath expression for XML files
+        type:
+          $ref: '#/components/schemas/FieldType'
+        required:
+          type: boolean
+          default: false
+        defaultValue:
+          type: string
+          description: Default value applied when field is null/blank
+        masked:
+          type: boolean
+          default: false
+          description: Mask value in all logs (for PAN, SSN, etc.)
+        validations:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldValidation'
+
+    FieldValidation:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [NOT_EMPTY, REGEX, RANGE, MIN_LENGTH, MAX_LENGTH, ALLOWED_VALUES, LUHN]
+        pattern:
+          type: string
+          description: Regex pattern (for REGEX type)
+        min:
+          type: number
+          description: Minimum value (for RANGE type)
+        max:
+          type: number
+          description: Maximum value (for RANGE type)
+        minLength:
+          type: integer
+        maxLength:
+          type: integer
+        values:
+          type: array
+          items:
+            type: string
+          description: Allowed values list (for ALLOWED_VALUES type)
+
+    CorrectionRule:
+      type: object
+      required: [type, applyOrder]
+      properties:
+        type:
+          type: string
+          enum: [TRIM, UPPERCASE, LOWERCASE, PAD_LEFT, PAD_RIGHT, REPLACE, STRIP_NON_NUMERIC, FORMAT_DATE]
+        fields:
+          type: array
+          items:
+            type: string
+          description: Field names to apply the rule to. Use `["*"]` for all fields.
+          example: ['currency']
+        applyOrder:
+          type: integer
+          description: Execution order (ascending). Lower numbers run first.
+          example: 1
+        params:
+          type: object
+          description: Type-specific parameters (e.g. `padChar`, `width`, `fromPattern`, `toPattern`)
+          additionalProperties: true
+
+    ValidationRule:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [NOT_EMPTY, CROSS_FIELD_REQUIRED, CONDITIONAL_REQUIRED, UNIQUE_KEY, REFERENTIAL_INTEGRITY]
+        fields:
+          type: array
+          items:
+            type: string
+        params:
+          type: object
+          additionalProperties: true
+
+    PipelineDestination:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [KAFKA, DATABASE, WEBHOOK, SFTP, S3]
+        integrationId:
+          type: string
+          description: References a registered integration
+        topic:
+          type: string
+          description: Kafka topic (for KAFKA destinations)
+        table:
+          type: string
+          description: Target table (for DATABASE destinations)
+        url:
+          type: string
+          description: Webhook URL (for WEBHOOK destinations)
+
+    FieldMapping:
+      type: object
+      required: [sourceField, targetField]
+      properties:
+        sourceField:
+          type: string
+          description: Field name in the incoming event
+          example: transactionId
+        targetField:
+          type: string
+          description: Field name in the generated file
+          example: TXN_ID
+        transform:
+          type: string
+          enum: [NONE, UPPERCASE, LOWERCASE, DATE_REFORMAT, AMOUNT_CENTS_TO_DECIMAL, AMOUNT_DECIMAL_TO_CENTS]
+          default: NONE
+        defaultValue:
+          type: string
+
+    OutboundConfig:
+      type: object
+      required: [format, fieldMappings]
+      description: |
+        Optional outbound pipeline configuration. When present, the spec supports
+        the Events → File pipeline in addition to (or instead of) File → Events.
+      properties:
+        format:
+          $ref: '#/components/schemas/FileFormat'
+        fieldMappings:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldMapping'
+        fieldOrder:
+          type: array
+          items:
+            type: string
+          description: Order of fields in the output file
+        correctionRules:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorrectionRule'
+        validationRules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationRule'
+        headerTemplate:
+          type: string
+          description: Template string for the file header row (supports `{date}`, `{correlationId}`, `{recordCount}`)
+        footerTemplate:
+          type: string
+          description: Template string for the file footer/trailer row
+        fileNamingPattern:
+          type: string
+          description: Pattern for generated file names (supports `{date}`, `{correlationId}`, `{specId}`)
+          example: payments-{date}-{correlationId}.csv
+        destination:
+          $ref: '#/components/schemas/PipelineDestination'
+
+    FileSpecRequest:
+      type: object
+      required: [id, name, format, fields]
+      properties:
+        id:
+          type: string
+          description: Unique identifier for this spec (kebab-case recommended)
+          example: acme-payments-v2
+        name:
+          type: string
+          example: ACME Payments CSV
+        format:
+          $ref: '#/components/schemas/FileFormat'
+        delimiter:
+          type: string
+          description: Field delimiter for CSV files (default `,`)
+          example: ','
+        hasHeader:
+          type: boolean
+          description: Whether the CSV file has a header row
+          default: false
+        encoding:
+          type: string
+          description: File character encoding
+          default: UTF-8
+          example: UTF-8
+        skipInvalidRecords:
+          type: boolean
+          description: Skip records with ERROR severity (FATAL records are always skipped)
+          default: false
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldSpec'
+          minItems: 1
+        correctionRules:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorrectionRule'
+        validationRules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationRule'
+        destination:
+          $ref: '#/components/schemas/PipelineDestination'
+        outbound:
+          $ref: '#/components/schemas/OutboundConfig'
+
+    FileSpec:
+      allOf:
+        - $ref: '#/components/schemas/FileSpecRequest'
+        - type: object
+          properties:
+            version:
+              type: integer
+              description: Auto-incremented on each PUT
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    # ── Transform ─────────────────────────────────────────────────────────────
+
+    ProcessingResult:
+      type: object
+      properties:
+        specId:
+          type: string
+        correlationId:
+          type: string
+        totalRecords:
+          type: integer
+        processedRecords:
+          type: integer
+        failedRecords:
+          type: integer
+        skippedRecords:
+          type: integer
+        durationMs:
+          type: integer
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecordError'
+
+    RecordError:
+      type: object
+      properties:
+        recordIndex:
+          type: integer
+        field:
+          type: string
+        severity:
+          $ref: '#/components/schemas/ErrorSeverity'
+        message:
+          type: string
+
+    EventBatchRequest:
+      type: object
+      required: [events]
+      properties:
+        correlationId:
+          type: string
+          description: Optional correlation ID included in file name and response headers
+        events:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+          description: Array of event objects. Field names must match the spec's `fieldMappings[].sourceField`.
+          minItems: 1
+
+    # ── Integrations ──────────────────────────────────────────────────────────
+
+    IntegrationSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        clientId:
+          type: string
+        type:
+          $ref: '#/components/schemas/IntegrationType'
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/ConnectionStatus'
+        lastTestedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    IntegrationRequest:
+      type: object
+      required: [clientId, type, name, config]
+      properties:
+        clientId:
+          type: string
+          description: Client/tenant identifier
+          example: acme-corp
+        type:
+          $ref: '#/components/schemas/IntegrationType'
+        name:
+          type: string
+          description: Human-readable label
+          example: ACME Production SFTP
+        config:
+          type: object
+          description: Type-specific connection configuration (host, port, topic, etc.)
+          additionalProperties: true
+        credentialRef:
+          type: string
+          description: Reference to an encrypted credential stored via `POST /api/credentials`
+          example: acme-sftp-prod
+
+    Integration:
+      allOf:
+        - $ref: '#/components/schemas/IntegrationRequest'
+        - type: object
+          properties:
+            id:
+              type: string
+            status:
+              $ref: '#/components/schemas/ConnectionStatus'
+            lastTestedAt:
+              type: string
+              format: date-time
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    ConnectivityTestResult:
+      type: object
+      properties:
+        integrationId:
+          type: string
+        status:
+          $ref: '#/components/schemas/ConnectionStatus'
+        latencyMs:
+          type: integer
+        message:
+          type: string
+        testedAt:
+          type: string
+          format: date-time
+
+    # ── Credentials ───────────────────────────────────────────────────────────
+
+    CredentialRequest:
+      type: object
+      required: [ref, type, values]
+      properties:
+        ref:
+          type: string
+          description: Unique reference name for this credential set
+          example: acme-sftp-prod
+        type:
+          $ref: '#/components/schemas/CredentialType'
+        values:
+          type: object
+          description: Key-value pairs of credential data (AES-256-GCM encrypted at rest)
+          additionalProperties:
+            type: string
+
+    CredentialResponse:
+      type: object
+      description: Credential metadata — plaintext values are never returned
+      properties:
+        ref:
+          type: string
+        type:
+          $ref: '#/components/schemas/CredentialType'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # ── Health ────────────────────────────────────────────────────────────────
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [UP, DOWN, OUT_OF_SERVICE, UNKNOWN]
+        components:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              status:
+                type: string
+              details:
+                type: object
+                additionalProperties: true
+
+    # ── Problem Details ───────────────────────────────────────────────────────
+
+    ProblemDetail:
+      type: object
+      description: RFC 7807 Problem Details for HTTP APIs
+      properties:
+        type:
+          type: string
+          format: uri
+          example: https://transform-platform/errors/spec-not-found
+        title:
+          type: string
+          example: FileSpec Not Found
+        status:
+          type: integer
+          example: 404
+        detail:
+          type: string
+          example: "No FileSpec found with id 'acme-payments-v2'"
+        instance:
+          type: string
+          format: uri
+          example: /api/specs/acme-payments-v2
+
+security:
+  - BearerAuth: []

@@ -1,0 +1,36 @@
+---
+id: profilestatus
+title: "ProfileStatus"
+description: "- `DRAFT` — not yet deployed; safe to edit"
+sidebar_label: "ProfileStatus"
+hide_title: true
+hide_table_of_contents: true
+schema: true
+sample: "DRAFT"
+custom_edit_url: null
+---
+
+import Schema from "@theme/Schema";
+import Heading from "@theme/Heading";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"ProfileStatus"}
+>
+</Heading>
+
+
+
+- `DRAFT` — not yet deployed; safe to edit
+- `ENABLED` — window scheduling active
+- `DISABLED` — scheduling paused; manual triggers still work
+- `ARCHIVED` — retired; read-only
+
+
+<Schema
+  {...require("./profilestatus.Schema.json")}
+>
+  
+</Schema>
+            

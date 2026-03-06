@@ -1,0 +1,32 @@
+---
+id: filespec
+title: "FileSpec"
+description: ""
+sidebar_label: "FileSpec"
+hide_title: true
+hide_table_of_contents: true
+schema: true
+sample: {"id":"acme-payments-v2","name":"ACME Payments CSV","format":"CSV","delimiter":",","hasHeader":false,"encoding":"UTF-8","skipInvalidRecords":false,"fields":[{"name":"transactionId","index":0,"start":0,"length":0,"xpathExpression":"string","type":"STRING","required":false,"defaultValue":"string","masked":false,"validations":[{"type":"NOT_EMPTY","pattern":"string","min":0,"max":0,"minLength":0,"maxLength":0,"values":["string"]}]}],"correctionRules":[{"type":"TRIM","fields":["currency"],"applyOrder":1,"params":{}}],"validationRules":[{"type":"NOT_EMPTY","fields":["string"],"params":{}}],"destination":{"type":"KAFKA","integrationId":"string","topic":"string","table":"string","url":"string"},"outbound":{"format":"CSV","fieldMappings":[{"sourceField":"transactionId","targetField":"TXN_ID","transform":"NONE","defaultValue":"string"}],"fieldOrder":["string"],"correctionRules":[{"type":"TRIM","fields":["currency"],"applyOrder":1,"params":{}}],"validationRules":[{"type":"NOT_EMPTY","fields":["string"],"params":{}}],"headerTemplate":"string","footerTemplate":"string","fileNamingPattern":"payments-{date}-{correlationId}.csv","destination":{"type":"KAFKA","integrationId":"string","topic":"string","table":"string","url":"string"}},"version":0,"createdAt":"2024-07-29T15:51:28.071Z","updatedAt":"2024-07-29T15:51:28.071Z"}
+custom_edit_url: null
+---
+
+import Schema from "@theme/Schema";
+import Heading from "@theme/Heading";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"FileSpec"}
+>
+</Heading>
+
+
+
+
+
+<Schema
+  {...require("./filespec.Schema.json")}
+>
+  
+</Schema>
+            

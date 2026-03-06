@@ -1,0 +1,40 @@
+---
+id: actioncondition
+title: "ActionCondition"
+description: "- `ON_OPEN` — fires when the window opens"
+sidebar_label: "ActionCondition"
+hide_title: true
+hide_table_of_contents: true
+schema: true
+sample: "ON_OPEN"
+custom_edit_url: null
+---
+
+import Schema from "@theme/Schema";
+import Heading from "@theme/Heading";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"ActionCondition"}
+>
+</Heading>
+
+
+
+- `ON_OPEN` — fires when the window opens
+- `ON_CLOSING` — fires when the window closes
+- `RECURRING_WHILE_OPEN` — fires on `recurringInterval` while window is open
+- `ON_EMPTY_CLOSE` — fires at close if zero events were collected
+- `ON_THRESHOLD_REACHED` — fires when event count crosses a configured threshold
+- `ON_ERROR` — fires when any action in the chain fails
+- `ON_MANUAL_TRIGGER` — fires only via explicit API call
+- `ON_DUPLICATE_DETECTED` — fires when a duplicate event is rejected
+
+
+<Schema
+  {...require("./actioncondition.Schema.json")}
+>
+  
+</Schema>
+            

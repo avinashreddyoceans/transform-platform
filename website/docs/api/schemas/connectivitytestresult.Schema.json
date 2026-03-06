@@ -1,0 +1,1 @@
+{"schema":{"type":"object","properties":{"integrationId":{"type":"string"},"status":{"type":"string","enum":["CONNECTED","FAILED","TIMEOUT","AUTH_ERROR"],"title":"ConnectionStatus"},"latencyMs":{"type":"integer"},"message":{"type":"string"},"testedAt":{"type":"string","format":"date-time"}},"title":"ConnectivityTestResult"},"schemaType":"response"}

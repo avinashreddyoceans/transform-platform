@@ -1,0 +1,1 @@
+{"schema":{"type":"string","enum":["STRING","INTEGER","DECIMAL","DATE","DATETIME","BOOLEAN"],"title":"FieldType"},"schemaType":"response"}

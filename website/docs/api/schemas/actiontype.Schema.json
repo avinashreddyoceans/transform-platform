@@ -1,0 +1,1 @@
+{"schema":{"type":"string","enum":["FILE_TO_EVENTS","EVENTS_TO_FILE","NOTIFY","VALIDATE_COMPLETENESS","TRANSFORM_AND_ROUTE","ARCHIVE","INVOKE_EXTERNAL"],"title":"ActionType"},"schemaType":"response"}

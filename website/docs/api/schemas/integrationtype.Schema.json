@@ -1,0 +1,1 @@
+{"schema":{"type":"string","enum":["SFTP","KAFKA","REST","S3"],"title":"IntegrationType"},"schemaType":"response"}

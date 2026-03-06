@@ -1,6 +1,7 @@
 import { themes as prismThemes } from 'prism-react-renderer';
 import type { Config } from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
+import type { PluginOptions as OpenApiPluginOptions } from 'docusaurus-plugin-openapi-docs';
 
 // ─── Search mode ──────────────────────────────────────────────────────────────
 //
@@ -42,7 +43,7 @@ const config: Config = {
 
   themes: [
     '@docusaurus/theme-mermaid',
-    // ── STEP 1: Local search theme ────────────────────────────────────────────
+    // ── Local search theme (STEP 1) ───────────────────────────────────────────
     // Disable this block when switching to Algolia (STEP 2)
     ...(SEARCH_MODE === 'local'
       ? [
@@ -59,23 +60,45 @@ const config: Config = {
           ] as any,
         ]
       : []),
+    // ── OpenAPI interactive docs theme ────────────────────────────────────────
+    'docusaurus-theme-openapi-docs',
   ],
 
-  // ── STEP 2: Algolia DocSearch v4 adapter plugin (uncomment when ready) ──────
-  // plugins: [
-  //   [
-  //     '@docsearch/docusaurus-adapter',
-  //     {
-  //       appId: ALGOLIA_APP_ID,
-  //       apiKey: ALGOLIA_SEARCH_API_KEY,
-  //       indexName: ALGOLIA_INDEX_NAME,
-  //       askAi: {
-  //         assistantId: ALGOLIA_ASSISTANT_ID,
-  //         sidePanel: true,   // opens AI chat in a side panel (recommended)
-  //       },
-  //     },
-  //   ],
-  // ],
+  plugins: [
+    // ── OpenAPI docs generator ────────────────────────────────────────────────
+    [
+      'docusaurus-plugin-openapi-docs',
+      {
+        id: 'openapi',
+        docsPluginId: 'classic',
+        config: {
+          transformplatform: {
+            specPath: 'openapi.yaml',
+            outputDir: 'docs/api',
+            sidebarOptions: {
+              groupPathsBy: 'tag',
+              categoryLinkSource: 'tag',
+            },
+            showSchemas: true,
+          } satisfies OpenApiPluginOptions['config'][string],
+        },
+      } satisfies OpenApiPluginOptions,
+    ],
+
+    // ── STEP 2: Algolia DocSearch v4 adapter plugin (uncomment when ready) ───
+    // [
+    //   '@docsearch/docusaurus-adapter',
+    //   {
+    //     appId: ALGOLIA_APP_ID,
+    //     apiKey: ALGOLIA_SEARCH_API_KEY,
+    //     indexName: ALGOLIA_INDEX_NAME,
+    //     askAi: {
+    //       assistantId: ALGOLIA_ASSISTANT_ID,
+    //       sidePanel: true,
+    //     },
+    //   },
+    // ],
+  ],
 
   i18n: {
     defaultLocale: 'en',
@@ -90,6 +113,8 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/avinashreddyoceans/transform-platform/edit/main/website/',
           routeBasePath: '/',
+          // Required for OpenAPI docs theme to render API pages correctly
+          docItemComponent: '@theme/ApiItem',
         },
         blog: false,
         theme: {
@@ -132,12 +157,17 @@ const config: Config = {
           to: '/intro',
           position: 'left',
           label: 'Docs',
-          activeBaseRegex: '^/(?!$)',
+          activeBaseRegex: '^/(?!$|api)',
         },
         {
           to: '/integration/overview',
           position: 'left',
           label: 'Integrations',
+        },
+        {
+          to: '/api/transform-platform-api',
+          position: 'left',
+          label: 'REST API',
         },
         {
           to: '/getting-started',
@@ -160,6 +190,15 @@ const config: Config = {
             { label: 'Introduction',   to: '/' },
             { label: 'Getting Started', to: '/getting-started' },
             { label: 'Architecture',   to: '/architecture' },
+          ],
+        },
+        {
+          title: 'API',
+          items: [
+            { label: 'REST API Reference', to: '/api/transform-platform-api' },
+            { label: 'FileSpecs',     to: '/api/list-specs' },
+            { label: 'Transform',     to: '/api/transform-file' },
+            { label: 'Integrations',  to: '/api/list-integrations' },
           ],
         },
         {

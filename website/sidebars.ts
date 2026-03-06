@@ -1,4 +1,5 @@
 import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
+import apiSidebar from './docs/api/sidebar';
 
 const sidebars: SidebarsConfig = {
   docs: [
@@ -6,6 +7,11 @@ const sidebars: SidebarsConfig = {
       type: 'doc',
       id: 'intro',
       label: '👋 Introduction',
+    },
+    {
+      type: 'doc',
+      id: 'roadmap',
+      label: '🗺️ Roadmap',
     },
     {
       type: 'doc',
@@ -32,6 +38,17 @@ const sidebars: SidebarsConfig = {
       type: 'doc',
       id: 'events-to-file',
       label: '🔄 Events → File Pipeline',
+    },
+    {
+      type: 'category',
+      label: '⚙️ Core Domain',
+      collapsed: false,
+      items: [
+        'domain/window',
+        'domain/action',
+        'domain/profile',
+        'domain/zero-code-onboarding',
+      ],
     },
     {
       type: 'category',
@@ -90,6 +107,9 @@ const sidebars: SidebarsConfig = {
       ],
     },
   ],
+
+  // ── REST API Reference (generated from openapi.yaml) ──────────────────────
+  apisidebar: apiSidebar,
 };
 
 export default sidebars;

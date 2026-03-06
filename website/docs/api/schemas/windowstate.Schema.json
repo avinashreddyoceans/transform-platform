@@ -1,0 +1,1 @@
+{"schema":{"type":"string","enum":["PENDING","OPENING","OPEN","CLOSING","CLOSED","ERROR"],"title":"WindowState"},"schemaType":"response"}

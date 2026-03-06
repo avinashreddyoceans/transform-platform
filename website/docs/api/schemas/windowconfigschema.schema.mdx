@@ -1,0 +1,32 @@
+---
+id: windowconfigschema
+title: "WindowConfigSchema"
+description: ""
+sidebar_label: "WindowConfigSchema"
+hide_title: true
+hide_table_of_contents: true
+schema: true
+sample: {"id":"acme-payments-window","frequency":{"startCronExpression":"0 0/30 * * * ?","endCronExpression":"0 29/30 * * * ?","recurringInterval":"PT5M"},"autoCreateDefaultWindow":true,"maxDurationMinutes":0,"timezone":"America/New_York","deduplication":{"enabled":true,"strategy":"PAYLOAD_HASH","fields":["string"]}}
+custom_edit_url: null
+---
+
+import Schema from "@theme/Schema";
+import Heading from "@theme/Heading";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"WindowConfigSchema"}
+>
+</Heading>
+
+
+
+
+
+<Schema
+  {...require("./windowconfigschema.Schema.json")}
+>
+  
+</Schema>
+            

@@ -1,0 +1,1 @@
+{"parameters":[{"name":"profileId","in":"path","required":true,"schema":{"type":"string"},"description":"Profile ID (e.g. `ACME-PAYMENTS-DAILY`)"}]}

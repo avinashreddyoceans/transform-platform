@@ -1,0 +1,1 @@
+{"parameters":[{"name":"profileId","in":"path","required":true,"schema":{"type":"string"},"description":"Profile ID (e.g. `ACME-PAYMENTS-DAILY`)"},{"name":"version","in":"query","required":true,"schema":{"type":"integer","minimum":1},"description":"Version number to restore"}]}

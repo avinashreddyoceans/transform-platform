@@ -1,0 +1,1 @@
+{"schema":{"type":"object","properties":{"status":{"type":"string","enum":["UP","DOWN","OUT_OF_SERVICE","UNKNOWN"]},"components":{"type":"object","additionalProperties":{"type":"object","properties":{"status":{"type":"string"},"details":{"type":"object","additionalProperties":true}}}}},"title":"HealthResponse"},"schemaType":"response"}

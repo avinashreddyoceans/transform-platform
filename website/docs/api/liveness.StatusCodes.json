@@ -1,0 +1,1 @@
+{"responses":{"200":{"description":"Alive"},"503":{"description":"Not alive"}}}

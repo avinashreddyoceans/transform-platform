@@ -1,0 +1,34 @@
+---
+id: outboundconfig
+title: "OutboundConfig"
+description: "Optional outbound pipeline configuration. When present, the spec supports"
+sidebar_label: "OutboundConfig"
+hide_title: true
+hide_table_of_contents: true
+schema: true
+sample: {"format":"CSV","fieldMappings":[{"sourceField":"transactionId","targetField":"TXN_ID","transform":"NONE","defaultValue":"string"}],"fieldOrder":["string"],"correctionRules":[{"type":"TRIM","fields":["currency"],"applyOrder":1,"params":{}}],"validationRules":[{"type":"NOT_EMPTY","fields":["string"],"params":{}}],"headerTemplate":"string","footerTemplate":"string","fileNamingPattern":"payments-{date}-{correlationId}.csv","destination":{"type":"KAFKA","integrationId":"string","topic":"string","table":"string","url":"string"}}
+custom_edit_url: null
+---
+
+import Schema from "@theme/Schema";
+import Heading from "@theme/Heading";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"OutboundConfig"}
+>
+</Heading>
+
+
+
+Optional outbound pipeline configuration. When present, the spec supports
+the Events → File pipeline in addition to (or instead of) File → Events.
+
+
+<Schema
+  {...require("./outboundconfig.Schema.json")}
+>
+  
+</Schema>
+            

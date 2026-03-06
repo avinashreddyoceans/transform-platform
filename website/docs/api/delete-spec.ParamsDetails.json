@@ -1,0 +1,1 @@
+{"parameters":[{"name":"specId","in":"path","required":true,"schema":{"type":"string"},"description":"FileSpec ID (e.g. `acme-payments-v2`)"}]}

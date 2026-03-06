@@ -1,0 +1,1 @@
+{"schema":{"type":"string","enum":["CONNECTED","FAILED","TIMEOUT","AUTH_ERROR"],"title":"ConnectionStatus"},"schemaType":"response"}
