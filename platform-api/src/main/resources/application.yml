@@ -1,6 +1,6 @@
 spring:
   application:
-    name: transform-platform-api
+    name: transform-platform   # used as service.name in all OTel signals
 
   datasource:
     url: jdbc:postgresql://localhost:5432/transform_platform
@@ -54,10 +54,20 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health,info,metrics,prometheus,traces
   endpoint:
     health:
       show-details: always
+  # ── Distributed Tracing ──────────────────────────────────────────────────────
+  tracing:
+    sampling:
+      probability: 1.0   # 100% in dev — reduce to 0.05–0.1 in production
+  # ── OTel OTLP Exporter ───────────────────────────────────────────────────────
+  # Traces are pushed to the OTel Collector via OTLP HTTP.
+  # Metrics use the Prometheus pull model (/actuator/prometheus) — no OTLP push needed.
+  otlp:
+    tracing:
+      endpoint: http://${OTEL_COLLECTOR_HOST:localhost}:4318/v1/traces
 
 springdoc:
   api-docs:

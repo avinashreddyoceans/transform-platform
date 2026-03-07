@@ -1,0 +1,24 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "TransformPlatformApi - Local",
+      "request": "launch",
+      "mainClass": "com.transformplatform.api.TransformPlatformApplicationKt",
+      "projectName": "platform-api",
+      "vmArgs": "-Xms256m -Xmx512m -Djava.security.egd=file:/dev/./urandom",
+      "env": {
+        "DB_USER": "transform_user",
+        "DB_PASS": "transform_pass",
+        "KAFKA_BROKERS": "localhost:9092",
+        "PORT": "8080",
+        "JWT_SECRET": "local-dev-secret-replace-this-before-any-real-deployment",
+        "TEMP_DIR": "/tmp/transform-platform",
+        "ENCRYPTION_ENABLED": "false",
+        "OTEL_COLLECTOR_HOST": "localhost",
+        "SPRING_PROFILES_ACTIVE": "local,dev-text"
+      }
+    }
+  ]
+}

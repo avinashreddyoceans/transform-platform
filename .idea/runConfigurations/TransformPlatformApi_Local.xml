@@ -1,0 +1,25 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false"
+                 name="TransformPlatformApi - Local"
+                 type="Application"
+                 factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="com.transformplatform.api.TransformPlatformApplicationKt" />
+    <module name="transform-platform.platform-api.main" />
+    <option name="VM_PARAMETERS" value="-Xms256m -Xmx512m -Djava.security.egd=file:/dev/./urandom" />
+    <option name="WORKING_DIRECTORY" value="$MODULE_WORKING_DIR$" />
+    <envs>
+      <env name="DB_USER" value="transform_user" />
+      <env name="DB_PASS" value="transform_pass" />
+      <env name="KAFKA_BROKERS" value="localhost:9092" />
+      <env name="PORT" value="8080" />
+      <env name="JWT_SECRET" value="local-dev-secret-replace-this-before-any-real-deployment" />
+      <env name="TEMP_DIR" value="/tmp/transform-platform" />
+      <env name="ENCRYPTION_ENABLED" value="false" />
+      <env name="OTEL_COLLECTOR_HOST" value="localhost" />
+      <env name="SPRING_PROFILES_ACTIVE" value="local,dev-text" />
+    </envs>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

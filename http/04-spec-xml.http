@@ -1,0 +1,247 @@
+# ─── File Spec — XML ──────────────────────────────────────────────────────────
+# CRUD operations for XML file format specifications.
+# Fields are addressed by XPath expressions (path property).
+#
+# Example domain: ISO 20022 pain.001 (Customer Credit Transfer Initiation)
+# A simplified version — real ISO 20022 has many more elements.
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+### Create XML spec — ISO 20022 pain.001 Credit Transfer (simplified)
+# @name createXmlSpec
+POST {{baseUrl}}/api/v1/specs
+Content-Type: application/json
+
+{
+  "name": "iso20022-pain001-v1",
+  "description": "ISO 20022 Customer Credit Transfer Initiation (pain.001) — simplified",
+  "version": "1.0",
+  "format": "XML",
+  "encoding": "UTF-8",
+  "hasHeader": false,
+  "fields": [
+    {
+      "name": "messageId",
+      "displayName": "Message ID",
+      "type": "STRING",
+      "path": "/Document/CstmrCdtTrfInitn/GrpHdr/MsgId",
+      "required": true,
+      "maxLength": 35,
+      "description": "Unique message ID assigned by the initiating party"
+    },
+    {
+      "name": "creationDateTime",
+      "displayName": "Creation Date Time",
+      "type": "DATETIME",
+      "path": "/Document/CstmrCdtTrfInitn/GrpHdr/CreDtTm",
+      "required": true,
+      "format": "yyyy-MM-dd'T'HH:mm:ss",
+      "description": "ISO 8601 timestamp when the message was created"
+    },
+    {
+      "name": "numberOfTransactions",
+      "displayName": "Number of Transactions",
+      "type": "INTEGER",
+      "path": "/Document/CstmrCdtTrfInitn/GrpHdr/NbOfTxs",
+      "required": true,
+      "description": "Total count of individual transactions in this batch"
+    },
+    {
+      "name": "controlSum",
+      "displayName": "Control Sum",
+      "type": "AMOUNT",
+      "path": "/Document/CstmrCdtTrfInitn/GrpHdr/CtrlSum",
+      "required": true,
+      "scale": 2,
+      "description": "Sum of all transaction amounts — used for reconciliation"
+    },
+    {
+      "name": "initiatingPartyName",
+      "displayName": "Initiating Party Name",
+      "type": "STRING",
+      "path": "/Document/CstmrCdtTrfInitn/GrpHdr/InitgPty/Nm",
+      "required": true,
+      "maxLength": 140,
+      "description": "Name of the party initiating the payment batch"
+    },
+    {
+      "name": "paymentInfoId",
+      "displayName": "Payment Information ID",
+      "type": "STRING",
+      "path": "/Document/CstmrCdtTrfInitn/PmtInf/PmtInfId",
+      "required": true,
+      "maxLength": 35,
+      "description": "Unique ID for this payment information block"
+    },
+    {
+      "name": "paymentMethod",
+      "displayName": "Payment Method",
+      "type": "ENUM",
+      "path": "/Document/CstmrCdtTrfInitn/PmtInf/PmtMtd",
+      "required": true,
+      "allowedValues": ["TRF", "CHK", "DD"],
+      "description": "TRF=Credit Transfer, CHK=Cheque, DD=Direct Debit"
+    },
+    {
+      "name": "requestedExecutionDate",
+      "displayName": "Requested Execution Date",
+      "type": "DATE",
+      "path": "/Document/CstmrCdtTrfInitn/PmtInf/ReqdExctnDt",
+      "required": true,
+      "format": "yyyy-MM-dd",
+      "description": "Date on which the payment should be executed"
+    },
+    {
+      "name": "debtorName",
+      "displayName": "Debtor Name",
+      "type": "STRING",
+      "path": "/Document/CstmrCdtTrfInitn/PmtInf/Dbtr/Nm",
+      "required": true,
+      "maxLength": 140,
+      "sensitive": true,
+      "description": "Name of the debtor — PII"
+    },
+    {
+      "name": "debtorAccountIBAN",
+      "displayName": "Debtor Account IBAN",
+      "type": "ACCOUNT_NUMBER",
+      "path": "/Document/CstmrCdtTrfInitn/PmtInf/DbtrAcct/Id/IBAN",
+      "required": true,
+      "sensitive": true,
+      "validationRegex": "^[A-Z]{2}[0-9]{2}[A-Z0-9]{4}[0-9]{7}([A-Z0-9]?){0,16}$",
+      "description": "IBAN of the debtor account — PII"
+    },
+    {
+      "name": "creditorName",
+      "displayName": "Creditor Name",
+      "type": "STRING",
+      "path": "/Document/CstmrCdtTrfInitn/PmtInf/CdtTrfTxInf/Cdtr/Nm",
+      "required": true,
+      "maxLength": 140,
+      "sensitive": true
+    },
+    {
+      "name": "instructedAmount",
+      "displayName": "Instructed Amount",
+      "type": "AMOUNT",
+      "path": "/Document/CstmrCdtTrfInitn/PmtInf/CdtTrfTxInf/Amt/InstdAmt",
+      "required": true,
+      "scale": 2
+    },
+    {
+      "name": "currencyCode",
+      "displayName": "Currency",
+      "type": "STRING",
+      "path": "/Document/CstmrCdtTrfInitn/PmtInf/CdtTrfTxInf/Amt/InstdAmt",
+      "xmlAttribute": "Ccy",
+      "required": true,
+      "exactLength": 3,
+      "validationRegex": "^[A-Z]{3}$",
+      "description": "ISO 4217 currency code stored as XML attribute on InstdAmt element"
+    },
+    {
+      "name": "remittanceInfo",
+      "displayName": "Remittance Information",
+      "type": "STRING",
+      "path": "/Document/CstmrCdtTrfInitn/PmtInf/CdtTrfTxInf/RmtInf/Ustrd",
+      "required": false,
+      "nullable": true,
+      "maxLength": 140,
+      "description": "Unstructured remittance information (invoice reference etc.)"
+    }
+  ],
+  "validationRules": [
+    {
+      "ruleId": "control-sum-positive",
+      "field": "controlSum",
+      "ruleType": "MIN_VALUE",
+      "value": "0.01",
+      "message": "Control sum must be greater than zero",
+      "severity": "ERROR"
+    },
+    {
+      "ruleId": "instructed-amount-positive",
+      "field": "instructedAmount",
+      "ruleType": "MIN_VALUE",
+      "value": "0.01",
+      "message": "Instructed amount must be positive",
+      "severity": "ERROR"
+    },
+    {
+      "ruleId": "currency-uppercase",
+      "field": "currencyCode",
+      "ruleType": "REGEX",
+      "value": "^[A-Z]{3}$",
+      "message": "Currency must be a 3-letter ISO 4217 code",
+      "severity": "ERROR"
+    },
+    {
+      "ruleId": "debtor-name-not-empty",
+      "field": "debtorName",
+      "ruleType": "NOT_EMPTY",
+      "message": "Debtor name is required",
+      "severity": "FATAL"
+    }
+  ],
+  "correctionRules": [
+    {
+      "ruleId": "trim-remittance",
+      "field": "remittanceInfo",
+      "correctionType": "TRIM",
+      "applyOrder": 1
+    },
+    {
+      "ruleId": "uppercase-currency",
+      "field": "currencyCode",
+      "correctionType": "UPPERCASE",
+      "applyOrder": 2
+    },
+    {
+      "ruleId": "coerce-execution-date",
+      "field": "requestedExecutionDate",
+      "correctionType": "DATE_FORMAT_COERCE",
+      "applyOrder": 3
+    }
+  ],
+  "metadata": {
+    "standard": "ISO-20022",
+    "messageType": "pain.001",
+    "team": "swift-payments"
+  }
+}
+
+> {%
+  client.test("Status is 201 Created", function() {
+    client.assert(response.status === 201, "Expected 201, got " + response.status);
+  });
+  client.test("Format is XML", function() {
+    client.assert(response.body.format === "XML", "Expected XML format");
+  });
+  client.global.set("xmlSpecId", response.body.id);
+  client.log("XML spec created: " + response.body.id);
+%}
+
+
+### List all XML specs
+GET {{baseUrl}}/api/v1/specs?format=XML&page=0&size=20
+Accept: application/json
+
+
+### Get XML spec by ID
+GET {{baseUrl}}/api/v1/specs/{{xmlSpecId}}
+Accept: application/json
+
+> {%
+  client.test("Status is 200", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+  });
+%}
+
+
+### Validate XML spec
+POST {{baseUrl}}/api/v1/specs/{{xmlSpecId}}/validate
+Accept: application/json
+
+
+### Delete XML spec
+DELETE {{baseUrl}}/api/v1/specs/{{xmlSpecId}}

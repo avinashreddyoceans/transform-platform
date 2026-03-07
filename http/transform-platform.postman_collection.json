@@ -1,0 +1,884 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "Transform Platform — Local",
+    "description": "Full API test collection for Transform Platform.\n\nImport this file along with `transform-platform.postman_environment.json`.\n\nWorkflow:\n1. Import both files into Postman.\n2. Select the **Transform Platform — Local** environment.\n3. Start with **01 · Health & Actuator** to verify the app is up.\n4. Run **02 · Spec — CSV → Create CSV spec** — the test script auto-saves the ID into `csvSpecId`.\n5. Repeat for fixed-width and XML specs.\n6. Run **04 · Transform** requests using the saved spec IDs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",         "value": "http://localhost:8080",    "type": "string" },
+    { "key": "csvSpecId",       "value": "",                         "type": "string" },
+    { "key": "fixedWidthSpecId","value": "",                         "type": "string" },
+    { "key": "xmlSpecId",       "value": "",                         "type": "string" },
+    { "key": "kafkaTopic",      "value": "transform.records.local",  "type": "string" },
+    { "key": "correlationId",   "value": "",                         "type": "string" }
+  ],
+  "item": [
+
+    {
+      "name": "01 · Health & Actuator",
+      "description": "Spring Boot Actuator endpoints. No auth required in local/dev profile.",
+      "item": [
+        {
+          "name": "Full health report",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/actuator/health", "host": ["{{baseUrl}}"], "path": ["actuator", "health"] }
+          }
+        },
+        {
+          "name": "Liveness probe",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/actuator/health/liveness", "host": ["{{baseUrl}}"], "path": ["actuator", "health", "liveness"] }
+          }
+        },
+        {
+          "name": "Readiness probe",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/actuator/health/readiness", "host": ["{{baseUrl}}"], "path": ["actuator", "health", "readiness"] }
+          }
+        },
+        {
+          "name": "Database health",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/actuator/health/db", "host": ["{{baseUrl}}"], "path": ["actuator", "health", "db"] }
+          }
+        },
+        {
+          "name": "Kafka health",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/actuator/health/kafka", "host": ["{{baseUrl}}"], "path": ["actuator", "health", "kafka"] }
+          }
+        },
+        {
+          "name": "Disk space",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/actuator/health/diskSpace", "host": ["{{baseUrl}}"], "path": ["actuator", "health", "diskSpace"] }
+          }
+        },
+        {
+          "name": "Application info",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/actuator/info", "host": ["{{baseUrl}}"], "path": ["actuator", "info"] }
+          }
+        },
+        {
+          "name": "All metrics (index)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/actuator/metrics", "host": ["{{baseUrl}}"], "path": ["actuator", "metrics"] }
+          }
+        },
+        {
+          "name": "Metric — JVM heap used",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/actuator/metrics/jvm.memory.used", "host": ["{{baseUrl}}"], "path": ["actuator", "metrics", "jvm.memory.used"] }
+          }
+        },
+        {
+          "name": "Metric — HTTP server requests",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/actuator/metrics/http.server.requests", "host": ["{{baseUrl}}"], "path": ["actuator", "metrics", "http.server.requests"] }
+          }
+        },
+        {
+          "name": "Metric — transform records processed",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/actuator/metrics/transform.records.processed", "host": ["{{baseUrl}}"], "path": ["actuator", "metrics", "transform.records.processed"] }
+          }
+        },
+        {
+          "name": "Prometheus scrape",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "text/plain" }],
+            "url": { "raw": "{{baseUrl}}/actuator/prometheus", "host": ["{{baseUrl}}"], "path": ["actuator", "prometheus"] }
+          }
+        },
+        {
+          "name": "Active traces",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/actuator/traces", "host": ["{{baseUrl}}"], "path": ["actuator", "traces"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "02 · Spec — CSV",
+      "description": "CRUD for CSV file specs. The Create request auto-saves the spec ID into {{csvSpecId}} via a test script.",
+      "item": [
+        {
+          "name": "Create CSV spec",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Response has id', () => pm.expect(pm.response.json().id).to.exist);",
+                  "const id = pm.response.json().id;",
+                  "pm.collectionVariables.set('csvSpecId', id);",
+                  "pm.environment.set('csvSpecId', id);",
+                  "console.log('CSV spec created:', id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"bank-transaction-csv-v1\",\n  \"description\": \"Daily bank transaction export — pipe-delimited with header row\",\n  \"version\": \"1.0\",\n  \"format\": \"CSV\",\n  \"encoding\": \"UTF-8\",\n  \"hasHeader\": true,\n  \"delimiter\": \"|\",\n  \"skipLinesCount\": 0,\n  \"fields\": [\n    {\n      \"name\": \"transactionId\",\n      \"displayName\": \"Transaction ID\",\n      \"type\": \"STRING\",\n      \"columnName\": \"TRANSACTION_ID\",\n      \"required\": true,\n      \"maxLength\": 36\n    },\n    {\n      \"name\": \"accountNumber\",\n      \"displayName\": \"Account Number\",\n      \"type\": \"ACCOUNT_NUMBER\",\n      \"columnName\": \"ACCOUNT_NO\",\n      \"required\": true,\n      \"sensitive\": true\n    },\n    {\n      \"name\": \"routingNumber\",\n      \"displayName\": \"Routing Number\",\n      \"type\": \"ROUTING_NUMBER\",\n      \"columnName\": \"ROUTING_NO\",\n      \"required\": true,\n      \"sensitive\": true\n    },\n    {\n      \"name\": \"amount\",\n      \"displayName\": \"Amount\",\n      \"type\": \"AMOUNT\",\n      \"columnName\": \"AMOUNT\",\n      \"required\": true,\n      \"scale\": 2\n    },\n    {\n      \"name\": \"transactionDate\",\n      \"displayName\": \"Transaction Date\",\n      \"type\": \"DATE\",\n      \"columnName\": \"TXN_DATE\",\n      \"required\": true,\n      \"format\": \"yyyy-MM-dd\"\n    },\n    {\n      \"name\": \"transactionType\",\n      \"displayName\": \"Transaction Type\",\n      \"type\": \"ENUM\",\n      \"columnName\": \"TXN_TYPE\",\n      \"required\": true,\n      \"allowedValues\": [\"CREDIT\", \"DEBIT\", \"REVERSAL\", \"FEE\"]\n    },\n    {\n      \"name\": \"description\",\n      \"displayName\": \"Description\",\n      \"type\": \"STRING\",\n      \"columnName\": \"DESCRIPTION\",\n      \"required\": false,\n      \"nullable\": true,\n      \"maxLength\": 255\n    },\n    {\n      \"name\": \"status\",\n      \"displayName\": \"Status\",\n      \"type\": \"ENUM\",\n      \"columnName\": \"STATUS\",\n      \"required\": true,\n      \"allowedValues\": [\"POSTED\", \"PENDING\", \"REJECTED\"],\n      \"defaultValue\": \"POSTED\"\n    }\n  ],\n  \"validationRules\": [\n    {\n      \"ruleId\": \"amount-positive\",\n      \"field\": \"amount\",\n      \"ruleType\": \"MIN_VALUE\",\n      \"value\": \"0.01\",\n      \"message\": \"Transaction amount must be positive\",\n      \"severity\": \"ERROR\"\n    },\n    {\n      \"ruleId\": \"routing-length\",\n      \"field\": \"routingNumber\",\n      \"ruleType\": \"EXACT_LENGTH\",\n      \"value\": \"9\",\n      \"message\": \"Routing number must be exactly 9 digits\",\n      \"severity\": \"ERROR\"\n    },\n    {\n      \"ruleId\": \"account-not-empty\",\n      \"field\": \"accountNumber\",\n      \"ruleType\": \"NOT_EMPTY\",\n      \"message\": \"Account number is required\",\n      \"severity\": \"FATAL\"\n    }\n  ],\n  \"correctionRules\": [\n    {\n      \"ruleId\": \"trim-description\",\n      \"field\": \"description\",\n      \"correctionType\": \"TRIM\",\n      \"applyOrder\": 1\n    },\n    {\n      \"ruleId\": \"uppercase-type\",\n      \"field\": \"transactionType\",\n      \"correctionType\": \"UPPERCASE\",\n      \"applyOrder\": 2\n    },\n    {\n      \"ruleId\": \"strip-amount-symbols\",\n      \"field\": \"amount\",\n      \"correctionType\": \"NUMBER_FORMAT_COERCE\",\n      \"applyOrder\": 3\n    },\n    {\n      \"ruleId\": \"coerce-date\",\n      \"field\": \"transactionDate\",\n      \"correctionType\": \"DATE_FORMAT_COERCE\",\n      \"applyOrder\": 4\n    }\n  ],\n  \"metadata\": {\n    \"source\": \"core-banking-system\",\n    \"team\": \"payments\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/specs", "host": ["{{baseUrl}}"], "path": ["api", "v1", "specs"] }
+          }
+        },
+        {
+          "name": "List all specs",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/specs?page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "specs"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List CSV specs (filtered)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/specs?format=CSV&page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "specs"],
+              "query": [
+                { "key": "format", "value": "CSV" },
+                { "key": "page",   "value": "0" },
+                { "key": "size",   "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get CSV spec by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Format is CSV', () => pm.expect(pm.response.json().format).to.equal('CSV'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/specs/{{csvSpecId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "specs", "{{csvSpecId}}"] }
+          }
+        },
+        {
+          "name": "Update CSV spec (bump to v1.1)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"bank-transaction-csv-v1\",\n  \"description\": \"Daily bank transaction export — pipe-delimited with header row\",\n  \"version\": \"1.1\",\n  \"format\": \"CSV\",\n  \"encoding\": \"UTF-8\",\n  \"hasHeader\": true,\n  \"delimiter\": \"|\",\n  \"skipLinesCount\": 0,\n  \"fields\": [\n    { \"name\": \"transactionId\",   \"type\": \"STRING\",         \"columnName\": \"TRANSACTION_ID\", \"required\": true,  \"maxLength\": 36 },\n    { \"name\": \"accountNumber\",   \"type\": \"ACCOUNT_NUMBER\", \"columnName\": \"ACCOUNT_NO\",     \"required\": true,  \"sensitive\": true },\n    { \"name\": \"amount\",          \"type\": \"AMOUNT\",         \"columnName\": \"AMOUNT\",         \"required\": true,  \"scale\": 2 },\n    { \"name\": \"transactionDate\", \"type\": \"DATE\",           \"columnName\": \"TXN_DATE\",       \"required\": true,  \"format\": \"yyyy-MM-dd\" },\n    { \"name\": \"transactionType\", \"type\": \"ENUM\",           \"columnName\": \"TXN_TYPE\",       \"required\": true,  \"allowedValues\": [\"CREDIT\", \"DEBIT\", \"REVERSAL\", \"FEE\"] },\n    { \"name\": \"referenceId\",     \"type\": \"STRING\",         \"columnName\": \"REF_ID\",         \"required\": false, \"nullable\": true, \"maxLength\": 50, \"description\": \"Added in v1.1\" }\n  ],\n  \"validationRules\": [],\n  \"correctionRules\": [],\n  \"metadata\": { \"source\": \"core-banking-system\", \"team\": \"payments\" }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/specs/{{csvSpecId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "specs", "{{csvSpecId}}"] }
+          }
+        },
+        {
+          "name": "Validate CSV spec",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/specs/{{csvSpecId}}/validate", "host": ["{{baseUrl}}"], "path": ["api", "v1", "specs", "{{csvSpecId}}", "validate"] }
+          }
+        },
+        {
+          "name": "Delete CSV spec",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/specs/{{csvSpecId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "specs", "{{csvSpecId}}"] }
+          }
+        },
+        {
+          "name": "ERROR — missing name (expect 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Status is 400', () => pm.response.to.have.status(400));"],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"description\": \"Missing name\", \"format\": \"CSV\", \"fields\": [] }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/specs", "host": ["{{baseUrl}}"], "path": ["api", "v1", "specs"] }
+          }
+        },
+        {
+          "name": "ERROR — spec not found (expect 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Status is 404', () => pm.response.to.have.status(404));"],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/specs/00000000-0000-0000-0000-000000000000", "host": ["{{baseUrl}}"], "path": ["api", "v1", "specs", "00000000-0000-0000-0000-000000000000"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "03 · Spec — Fixed-Width (NACHA)",
+      "description": "CRUD for NACHA ACH Entry Detail fixed-width specs. Fields use startPosition + length.",
+      "item": [
+        {
+          "name": "Create fixed-width spec",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Format is FIXED_WIDTH', () => pm.expect(pm.response.json().format).to.equal('FIXED_WIDTH'));",
+                  "const id = pm.response.json().id;",
+                  "pm.collectionVariables.set('fixedWidthSpecId', id);",
+                  "pm.environment.set('fixedWidthSpecId', id);",
+                  "console.log('Fixed-width spec created:', id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"nacha-ach-entry-detail-v1\",\n  \"description\": \"NACHA ACH Entry Detail record — 94-character fixed-width\",\n  \"version\": \"1.0\",\n  \"format\": \"FIXED_WIDTH\",\n  \"encoding\": \"UTF-8\",\n  \"hasHeader\": false,\n  \"skipLinesCount\": 1,\n  \"fields\": [\n    { \"name\": \"recordTypeCode\",  \"type\": \"STRING\",         \"startPosition\": 1,  \"length\": 1,  \"required\": true, \"allowedValues\": [\"6\"] },\n    { \"name\": \"transactionCode\", \"type\": \"STRING\",         \"startPosition\": 2,  \"length\": 3,  \"required\": true, \"allowedValues\": [\"022\",\"023\",\"027\",\"028\",\"032\",\"037\",\"038\"] },\n    { \"name\": \"routingNumber\",   \"type\": \"ROUTING_NUMBER\", \"startPosition\": 5,  \"length\": 9,  \"required\": true, \"sensitive\": true, \"validationRegex\": \"^[0-9]{9}$\" },\n    { \"name\": \"accountNumber\",   \"type\": \"ACCOUNT_NUMBER\", \"startPosition\": 15, \"length\": 17, \"required\": true, \"sensitive\": true },\n    { \"name\": \"amount\",          \"type\": \"AMOUNT\",         \"startPosition\": 32, \"length\": 10, \"required\": true, \"scale\": 2, \"description\": \"In cents — 0000150000 = $1,500.00\" },\n    { \"name\": \"individualId\",    \"type\": \"STRING\",         \"startPosition\": 42, \"length\": 15, \"required\": false, \"nullable\": true },\n    { \"name\": \"individualName\",  \"type\": \"STRING\",         \"startPosition\": 57, \"length\": 22, \"required\": true, \"maxLength\": 22 },\n    { \"name\": \"traceNumber\",     \"type\": \"STRING\",         \"startPosition\": 88, \"length\": 7,  \"required\": true, \"validationRegex\": \"^[0-9]{7}$\" }\n  ],\n  \"validationRules\": [\n    { \"ruleId\": \"amount-non-zero\",       \"field\": \"amount\",         \"ruleType\": \"MIN_VALUE\",  \"value\": \"0.01\",        \"message\": \"ACH amount must be greater than zero\",    \"severity\": \"ERROR\" },\n    { \"ruleId\": \"individual-name-req\",   \"field\": \"individualName\", \"ruleType\": \"NOT_EMPTY\",  \"message\": \"Receiver name is required\",                \"severity\": \"FATAL\" },\n    { \"ruleId\": \"routing-regex\",         \"field\": \"routingNumber\",  \"ruleType\": \"REGEX\",      \"value\": \"^[0-9]{9}$\",  \"message\": \"Routing must be exactly 9 digits\",       \"severity\": \"ERROR\" }\n  ],\n  \"correctionRules\": [\n    { \"ruleId\": \"trim-account\",       \"field\": \"accountNumber\",  \"correctionType\": \"TRIM\", \"applyOrder\": 1 },\n    { \"ruleId\": \"trim-individual-id\", \"field\": \"individualId\",   \"correctionType\": \"TRIM\", \"applyOrder\": 2 },\n    { \"ruleId\": \"trim-name\",          \"field\": \"individualName\", \"correctionType\": \"TRIM\", \"applyOrder\": 3 }\n  ],\n  \"metadata\": { \"standard\": \"NACHA-2024\", \"recordType\": \"6\", \"team\": \"ach-processing\" }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/specs", "host": ["{{baseUrl}}"], "path": ["api", "v1", "specs"] }
+          }
+        },
+        {
+          "name": "List fixed-width specs",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/specs?format=FIXED_WIDTH&page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "specs"],
+              "query": [
+                { "key": "format", "value": "FIXED_WIDTH" },
+                { "key": "page",   "value": "0" },
+                { "key": "size",   "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get fixed-width spec by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/specs/{{fixedWidthSpecId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "specs", "{{fixedWidthSpecId}}"] }
+          }
+        },
+        {
+          "name": "Validate fixed-width spec",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/specs/{{fixedWidthSpecId}}/validate", "host": ["{{baseUrl}}"], "path": ["api", "v1", "specs", "{{fixedWidthSpecId}}", "validate"] }
+          }
+        },
+        {
+          "name": "Delete fixed-width spec",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/specs/{{fixedWidthSpecId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "specs", "{{fixedWidthSpecId}}"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "04 · Spec — XML (ISO 20022)",
+      "description": "CRUD for XML specs. Fields are addressed by XPath (path property). XML attributes use xmlAttribute.",
+      "item": [
+        {
+          "name": "Create XML spec",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Format is XML', () => pm.expect(pm.response.json().format).to.equal('XML'));",
+                  "const id = pm.response.json().id;",
+                  "pm.collectionVariables.set('xmlSpecId', id);",
+                  "pm.environment.set('xmlSpecId', id);",
+                  "console.log('XML spec created:', id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"iso20022-pain001-v1\",\n  \"description\": \"ISO 20022 Customer Credit Transfer Initiation (pain.001) — simplified\",\n  \"version\": \"1.0\",\n  \"format\": \"XML\",\n  \"encoding\": \"UTF-8\",\n  \"hasHeader\": false,\n  \"fields\": [\n    { \"name\": \"messageId\",           \"type\": \"STRING\",   \"path\": \"/Document/CstmrCdtTrfInitn/GrpHdr/MsgId\",                                               \"required\": true, \"maxLength\": 35 },\n    { \"name\": \"creationDateTime\",    \"type\": \"DATETIME\", \"path\": \"/Document/CstmrCdtTrfInitn/GrpHdr/CreDtTm\",                                              \"required\": true, \"format\": \"yyyy-MM-dd'T'HH:mm:ss\" },\n    { \"name\": \"numberOfTransactions\",\"type\": \"INTEGER\",  \"path\": \"/Document/CstmrCdtTrfInitn/GrpHdr/NbOfTxs\",                                              \"required\": true },\n    { \"name\": \"controlSum\",          \"type\": \"AMOUNT\",   \"path\": \"/Document/CstmrCdtTrfInitn/GrpHdr/CtrlSum\",                                              \"required\": true, \"scale\": 2 },\n    { \"name\": \"initiatingPartyName\", \"type\": \"STRING\",   \"path\": \"/Document/CstmrCdtTrfInitn/GrpHdr/InitgPty/Nm\",                                          \"required\": true, \"maxLength\": 140 },\n    { \"name\": \"paymentMethod\",       \"type\": \"ENUM\",     \"path\": \"/Document/CstmrCdtTrfInitn/PmtInf/PmtMtd\",                                              \"required\": true, \"allowedValues\": [\"TRF\",\"CHK\",\"DD\"] },\n    { \"name\": \"requestedExecutionDate\",\"type\": \"DATE\",  \"path\": \"/Document/CstmrCdtTrfInitn/PmtInf/ReqdExctnDt\",                                          \"required\": true, \"format\": \"yyyy-MM-dd\" },\n    { \"name\": \"debtorName\",          \"type\": \"STRING\",   \"path\": \"/Document/CstmrCdtTrfInitn/PmtInf/Dbtr/Nm\",                                              \"required\": true, \"maxLength\": 140, \"sensitive\": true },\n    { \"name\": \"debtorAccountIBAN\",   \"type\": \"ACCOUNT_NUMBER\", \"path\": \"/Document/CstmrCdtTrfInitn/PmtInf/DbtrAcct/Id/IBAN\",                              \"required\": true, \"sensitive\": true },\n    { \"name\": \"creditorName\",        \"type\": \"STRING\",   \"path\": \"/Document/CstmrCdtTrfInitn/PmtInf/CdtTrfTxInf/Cdtr/Nm\",                                \"required\": true, \"maxLength\": 140, \"sensitive\": true },\n    { \"name\": \"instructedAmount\",    \"type\": \"AMOUNT\",   \"path\": \"/Document/CstmrCdtTrfInitn/PmtInf/CdtTrfTxInf/Amt/InstdAmt\",                           \"required\": true, \"scale\": 2 },\n    { \"name\": \"currencyCode\",        \"type\": \"STRING\",   \"path\": \"/Document/CstmrCdtTrfInitn/PmtInf/CdtTrfTxInf/Amt/InstdAmt\", \"xmlAttribute\": \"Ccy\", \"required\": true, \"validationRegex\": \"^[A-Z]{3}$\" },\n    { \"name\": \"remittanceInfo\",      \"type\": \"STRING\",   \"path\": \"/Document/CstmrCdtTrfInitn/PmtInf/CdtTrfTxInf/RmtInf/Ustrd\",                          \"required\": false, \"nullable\": true, \"maxLength\": 140 }\n  ],\n  \"validationRules\": [\n    { \"ruleId\": \"control-sum-positive\",     \"field\": \"controlSum\",       \"ruleType\": \"MIN_VALUE\", \"value\": \"0.01\",          \"message\": \"Control sum must be positive\",     \"severity\": \"ERROR\" },\n    { \"ruleId\": \"instructed-amount-positive\",\"field\": \"instructedAmount\", \"ruleType\": \"MIN_VALUE\", \"value\": \"0.01\",          \"message\": \"Instructed amount must be positive\",\"severity\": \"ERROR\" },\n    { \"ruleId\": \"currency-format\",          \"field\": \"currencyCode\",     \"ruleType\": \"REGEX\",     \"value\": \"^[A-Z]{3}$\",  \"message\": \"Currency must be 3-letter ISO 4217\", \"severity\": \"ERROR\" },\n    { \"ruleId\": \"debtor-name-required\",     \"field\": \"debtorName\",       \"ruleType\": \"NOT_EMPTY\",  \"message\": \"Debtor name is required\",            \"severity\": \"FATAL\" }\n  ],\n  \"correctionRules\": [\n    { \"ruleId\": \"trim-remittance\",    \"field\": \"remittanceInfo\",        \"correctionType\": \"TRIM\",               \"applyOrder\": 1 },\n    { \"ruleId\": \"uppercase-currency\", \"field\": \"currencyCode\",          \"correctionType\": \"UPPERCASE\",          \"applyOrder\": 2 },\n    { \"ruleId\": \"coerce-exec-date\",   \"field\": \"requestedExecutionDate\",\"correctionType\": \"DATE_FORMAT_COERCE\", \"applyOrder\": 3 }\n  ],\n  \"metadata\": { \"standard\": \"ISO-20022\", \"messageType\": \"pain.001\", \"team\": \"swift-payments\" }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/specs", "host": ["{{baseUrl}}"], "path": ["api", "v1", "specs"] }
+          }
+        },
+        {
+          "name": "List XML specs",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/specs?format=XML&page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "specs"],
+              "query": [
+                { "key": "format", "value": "XML" },
+                { "key": "page",   "value": "0" },
+                { "key": "size",   "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get XML spec by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/specs/{{xmlSpecId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "specs", "{{xmlSpecId}}"] }
+          }
+        },
+        {
+          "name": "Validate XML spec",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/specs/{{xmlSpecId}}/validate", "host": ["{{baseUrl}}"], "path": ["api", "v1", "specs", "{{xmlSpecId}}", "validate"] }
+          }
+        },
+        {
+          "name": "Delete XML spec",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/specs/{{xmlSpecId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "specs", "{{xmlSpecId}}"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "05 · Transform",
+      "description": "File transformation endpoints. Requires a valid spec ID in the environment.",
+      "item": [
+        {
+          "name": "File to events — CSV (inline data)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has correlationId', () => pm.expect(pm.response.json().correlationId).to.exist);",
+                  "const id = pm.response.json().correlationId;",
+                  "if (id) { pm.collectionVariables.set('correlationId', id); pm.environment.set('correlationId', id); }",
+                  "console.log('Job started:', id, '| total:', pm.response.json().totalRecords);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "specId",             "value": "{{csvSpecId}}", "type": "text",        "description": "ID from 02 · Spec — CSV → Create" },
+                { "key": "kafkaTopic",         "value": "{{kafkaTopic}}", "type": "text" },
+                { "key": "skipInvalidRecords", "value": "false",          "type": "text" },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "Select a pipe-delimited CSV file. Sample header: TRANSACTION_ID|ACCOUNT_NO|ROUTING_NO|AMOUNT|TXN_DATE|TXN_TYPE|DESCRIPTION|STATUS"
+                }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/transform/file-to-events", "host": ["{{baseUrl}}"], "path": ["api", "v1", "transform", "file-to-events"] }
+          }
+        },
+        {
+          "name": "File to events — skip invalid records",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "specId",             "value": "{{csvSpecId}}", "type": "text" },
+                { "key": "kafkaTopic",         "value": "{{kafkaTopic}}", "type": "text" },
+                { "key": "skipInvalidRecords", "value": "true",           "type": "text" },
+                { "key": "file",               "type": "file", "src": [] }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/transform/file-to-events", "host": ["{{baseUrl}}"], "path": ["api", "v1", "transform", "file-to-events"] }
+          }
+        },
+        {
+          "name": "File to events — fixed-width NACHA",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "specId",             "value": "{{fixedWidthSpecId}}", "type": "text" },
+                { "key": "kafkaTopic",         "value": "transform.ach.records.local", "type": "text" },
+                { "key": "skipInvalidRecords", "value": "false", "type": "text" },
+                { "key": "file",               "type": "file", "src": [] }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/transform/file-to-events", "host": ["{{baseUrl}}"], "path": ["api", "v1", "transform", "file-to-events"] }
+          }
+        },
+        {
+          "name": "Schedule — run immediately (LOCAL_PATH)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const id = pm.response.json().correlationId;",
+                  "if (id) { pm.collectionVariables.set('correlationId', id); pm.environment.set('correlationId', id); }",
+                  "console.log('Scheduled job:', id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"specId\": \"{{csvSpecId}}\",\n  \"sourceType\": \"LOCAL_PATH\",\n  \"sourceFilePath\": \"/tmp/transform-platform/transactions.csv\",\n  \"destinationType\": \"KAFKA_TOPIC\",\n  \"kafkaTopic\": \"{{kafkaTopic}}\",\n  \"skipInvalidRecords\": false,\n  \"delayMs\": 0,\n  \"runOnce\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/transform/schedule", "host": ["{{baseUrl}}"], "path": ["api", "v1", "transform", "schedule"] }
+          }
+        },
+        {
+          "name": "Schedule — delayed 30 seconds",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"specId\": \"{{csvSpecId}}\",\n  \"sourceType\": \"LOCAL_PATH\",\n  \"sourceFilePath\": \"/tmp/transform-platform/transactions.csv\",\n  \"destinationType\": \"KAFKA_TOPIC\",\n  \"kafkaTopic\": \"{{kafkaTopic}}\",\n  \"skipInvalidRecords\": false,\n  \"delayMs\": 30000,\n  \"runOnce\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/transform/schedule", "host": ["{{baseUrl}}"], "path": ["api", "v1", "transform", "schedule"] }
+          }
+        },
+        {
+          "name": "Schedule — daily cron (02:00)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"specId\": \"{{csvSpecId}}\",\n  \"sourceType\": \"LOCAL_PATH\",\n  \"sourceFilePath\": \"/tmp/transform-platform/daily-transactions.csv\",\n  \"destinationType\": \"KAFKA_TOPIC\",\n  \"kafkaTopic\": \"{{kafkaTopic}}\",\n  \"skipInvalidRecords\": false,\n  \"delayMs\": 0,\n  \"cronExpression\": \"0 2 * * *\",\n  \"runOnce\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/transform/schedule", "host": ["{{baseUrl}}"], "path": ["api", "v1", "transform", "schedule"] }
+          }
+        },
+        {
+          "name": "Get status by correlationId",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has status field', () => pm.expect(pm.response.json().status).to.exist);",
+                  "const r = pm.response.json();",
+                  "console.log('Status:', r.status, '| total:', r.totalRecords, '| ok:', r.successfulRecords, '| failed:', r.failedRecords);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/transform/status/{{correlationId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "transform", "status", "{{correlationId}}"] }
+          }
+        },
+        {
+          "name": "ERROR — unknown correlationId (expect 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Status is 404', () => pm.response.to.have.status(404));"],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/transform/status/00000000-0000-0000-0000-000000000000", "host": ["{{baseUrl}}"], "path": ["api", "v1", "transform", "status", "00000000-0000-0000-0000-000000000000"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "06 · API Docs",
+      "description": "OpenAPI spec and Swagger UI.",
+      "item": [
+        {
+          "name": "OpenAPI spec (JSON)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api-docs", "host": ["{{baseUrl}}"], "path": ["api-docs"] }
+          }
+        },
+        {
+          "name": "OpenAPI spec (YAML)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api-docs.yaml", "host": ["{{baseUrl}}"], "path": ["api-docs.yaml"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "07 · Prometheus",
+      "description": "Query Prometheus directly. Prometheus runs at http://localhost:9090.",
+      "item": [
+        {
+          "name": "Targets health",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "http://localhost:9090/api/v1/targets", "host": ["localhost"], "port": "9090", "path": ["api", "v1", "targets"] }
+          }
+        },
+        {
+          "name": "Query — transform records processed (total)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "http://localhost:9090/api/v1/query?query=transform_records_processed_total",
+              "host": ["localhost"], "port": "9090", "path": ["api", "v1", "query"],
+              "query": [{ "key": "query", "value": "transform_records_processed_total" }]
+            }
+          }
+        },
+        {
+          "name": "Query — processing duration p99 (last 5m)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "http://localhost:9090/api/v1/query?query=histogram_quantile(0.99%2C+rate(transform_file_processing_duration_seconds_bucket%5B5m%5D))",
+              "host": ["localhost"], "port": "9090", "path": ["api", "v1", "query"],
+              "query": [{ "key": "query", "value": "histogram_quantile(0.99, rate(transform_file_processing_duration_seconds_bucket[5m]))" }]
+            }
+          }
+        },
+        {
+          "name": "Query — failed records by specId (last 10m)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "http://localhost:9090/api/v1/query?query=sum+by(specId)(increase(transform_records_failed_total%5B10m%5D))",
+              "host": ["localhost"], "port": "9090", "path": ["api", "v1", "query"],
+              "query": [{ "key": "query", "value": "sum by(specId)(increase(transform_records_failed_total[10m]))" }]
+            }
+          }
+        },
+        {
+          "name": "Query — JVM heap used",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "http://localhost:9090/api/v1/query?query=jvm_memory_used_bytes{area=\"heap\"}",
+              "host": ["localhost"], "port": "9090", "path": ["api", "v1", "query"],
+              "query": [{ "key": "query", "value": "jvm_memory_used_bytes{area=\"heap\"}" }]
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "08 · Grafana",
+      "description": "Grafana API — auth: admin / admin. UI at http://localhost:3000.",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "http://localhost:3000/api/health", "host": ["localhost"], "port": "3000", "path": ["api", "health"] }
+          }
+        },
+        {
+          "name": "List dashboards",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept",        "value": "application/json" },
+              { "key": "Authorization", "value": "Basic YWRtaW46YWRtaW4=" }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/search?type=dash-db",
+              "host": ["localhost"], "port": "3000", "path": ["api", "search"],
+              "query": [{ "key": "type", "value": "dash-db" }]
+            }
+          }
+        },
+        {
+          "name": "List datasources",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept",        "value": "application/json" },
+              { "key": "Authorization", "value": "Basic YWRtaW46YWRtaW4=" }
+            ],
+            "url": { "raw": "http://localhost:3000/api/datasources", "host": ["localhost"], "port": "3000", "path": ["api", "datasources"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "09 · Jaeger",
+      "description": "Jaeger trace queries. UI at http://localhost:16686.",
+      "item": [
+        {
+          "name": "List services",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "http://localhost:16686/api/services", "host": ["localhost"], "port": "16686", "path": ["api", "services"] }
+          }
+        },
+        {
+          "name": "Get traces — transform-platform (last 20)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "http://localhost:16686/api/traces?service=transform-platform&limit=20",
+              "host": ["localhost"], "port": "16686", "path": ["api", "traces"],
+              "query": [
+                { "key": "service", "value": "transform-platform" },
+                { "key": "limit",   "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get traces — file-to-events operation only",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "http://localhost:16686/api/traces?service=transform-platform&operation=POST%20%2Fapi%2Fv1%2Ftransform%2Ffile-to-events&limit=10",
+              "host": ["localhost"], "port": "16686", "path": ["api", "traces"],
+              "query": [
+                { "key": "service",   "value": "transform-platform" },
+                { "key": "operation", "value": "POST /api/v1/transform/file-to-events" },
+                { "key": "limit",     "value": "10" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "10 · Elasticsearch & Kibana",
+      "description": "Log search via Elasticsearch. No auth in local dev. Kibana UI at http://localhost:5601.",
+      "item": [
+        {
+          "name": "Cluster health",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "http://localhost:9200/_cluster/health", "host": ["localhost"], "port": "9200", "path": ["_cluster", "health"] }
+          }
+        },
+        {
+          "name": "List indices",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "text/plain" }],
+            "url": { "raw": "http://localhost:9200/_cat/indices?v", "host": ["localhost"], "port": "9200", "path": ["_cat", "indices"], "query": [{ "key": "v", "value": null }] }
+          }
+        },
+        {
+          "name": "Search — latest 10 log events",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": { \"match_all\": {} },\n  \"sort\": [{ \"@timestamp\": { \"order\": \"desc\" } }],\n  \"size\": 10\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "http://localhost:9200/transform-platform-*/_search", "host": ["localhost"], "port": "9200", "path": ["transform-platform-*", "_search"] }
+          }
+        },
+        {
+          "name": "Search — ERROR logs last 1 hour",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": {\n    \"bool\": {\n      \"must\": [{ \"match\": { \"level\": \"ERROR\" } }],\n      \"filter\": [{ \"range\": { \"@timestamp\": { \"gte\": \"now-1h\", \"lte\": \"now\" } } }]\n    }\n  },\n  \"sort\": [{ \"@timestamp\": { \"order\": \"desc\" } }],\n  \"size\": 20\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "http://localhost:9200/transform-platform-*/_search", "host": ["localhost"], "port": "9200", "path": ["transform-platform-*", "_search"] }
+          }
+        },
+        {
+          "name": "Search — by traceId (end-to-end correlation)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept",       "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": { \"match\": { \"traceId\": \"<replace-with-traceId>\" } },\n  \"sort\": [{ \"@timestamp\": { \"order\": \"asc\" } }]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "http://localhost:9200/transform-platform-*/_search", "host": ["localhost"], "port": "9200", "path": ["transform-platform-*", "_search"] }
+          }
+        },
+        {
+          "name": "Kibana status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "http://localhost:5601/api/status", "host": ["localhost"], "port": "5601", "path": ["api", "status"] }
+          }
+        }
+      ]
+    }
+
+  ]
+}

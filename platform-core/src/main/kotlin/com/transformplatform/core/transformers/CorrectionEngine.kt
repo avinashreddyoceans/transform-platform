@@ -3,31 +3,35 @@ package com.transformplatform.core.transformers
 import com.transformplatform.core.spec.model.*
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
-import java.text.SimpleDateFormat
-import java.util.*
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private val log = KotlinLogging.logger {}
 
 @Component
 class CorrectionEngine {
 
-    private val commonDateFormats = listOf(
-        "yyyy-MM-dd", "MM/dd/yyyy", "dd/MM/yyyy", "yyyyMMdd",
-        "MM-dd-yyyy", "dd-MM-yyyy", "yyyy/MM/dd", "MMddyyyy"
-    )
+    private companion object {
+        val CANDIDATE_DATE_FORMATTERS: List<DateTimeFormatter> = listOf(
+            "yyyy-MM-dd", "MM/dd/yyyy", "dd/MM/yyyy", "yyyyMMdd",
+            "MM-dd-yyyy", "dd-MM-yyyy", "yyyy/MM/dd", "MMddyyyy"
+        ).map { DateTimeFormatter.ofPattern(it, Locale.ENGLISH) }
+    }
 
     fun applyCorrections(record: ParsedRecord, spec: FileSpec): ParsedRecord {
         if (spec.correctionRules.isEmpty()) return record
-        var result = record
-        spec.correctionRules.sortedBy { it.applyOrder }.forEach { rule ->
-            val currentValue = result.getFieldAsString(rule.field)
-            val fieldSpec = spec.fields.find { it.name == rule.field }
-            val corrected = applyCorrection(rule, currentValue, fieldSpec)
-            if (corrected?.toString() != currentValue) {
-                result = result.withCorrection(rule.field, currentValue, corrected, rule.correctionType)
+        return spec.correctionRules
+            .sortedBy { it.applyOrder }
+            .fold(record) { acc, rule ->
+                val currentValue = acc.getFieldAsString(rule.field)
+                val fieldSpec = spec.fields.find { it.name == rule.field }
+                val corrected = applyCorrection(rule, currentValue, fieldSpec)
+                if (corrected?.toString() != currentValue)
+                    acc.withCorrection(rule.field, currentValue, corrected, rule.correctionType)
+                else
+                    acc
             }
-        }
-        return result
     }
 
     private fun applyCorrection(rule: CorrectionRule, value: String?, fieldSpec: FieldSpec?): Any? =
@@ -53,17 +57,20 @@ class CorrectionEngine {
 
     private fun coerceDate(value: String?, targetFormat: String?): String? {
         if (value.isNullOrBlank()) return value
-        val target = targetFormat ?: "yyyy-MM-dd"
-        for (format in commonDateFormats) {
-            try {
-                val parsed = SimpleDateFormat(format, Locale.getDefault()).apply { isLenient = false }.parse(value)
-                return SimpleDateFormat(target, Locale.getDefault()).format(parsed!!)
-            } catch (_: Exception) {}
-        }
-        log.warn { "Could not coerce date '$value' to format '$target'" }
-        return value
+        val target = DateTimeFormatter.ofPattern(targetFormat ?: "yyyy-MM-dd", Locale.ENGLISH)
+        return CANDIDATE_DATE_FORMATTERS
+            .firstNotNullOfOrNull { formatter ->
+                runCatching { LocalDate.parse(value, formatter) }.getOrNull()
+            }
+            ?.format(target)
+            ?: run {
+                log.warn { "Could not coerce date '$value' to format '$targetFormat'" }
+                value
+            }
     }
 
     private fun String.toTitleCase(): String =
-        split(" ").joinToString(" ") { it.lowercase().replaceFirstChar { c -> c.titlecase(Locale.getDefault()) } }
+        split(" ").joinToString(" ") {
+            it.lowercase().replaceFirstChar { c -> c.titlecase(Locale.ENGLISH) }
+        }
 }

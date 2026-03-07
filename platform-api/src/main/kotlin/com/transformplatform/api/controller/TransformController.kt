@@ -18,9 +18,6 @@ private val log = KotlinLogging.logger {}
 @Tag(name = "Transform", description = "File transformation and processing")
 class TransformController(private val transformService: TransformService) {
 
-    /**
-     * Upload a file, transform using the given specId, emit to Kafka or produce output file.
-     */
     @PostMapping("/file-to-events", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @Operation(
         summary = "Transform file → events",
@@ -33,35 +30,28 @@ class TransformController(private val transformService: TransformService) {
         @RequestPart(value = "skipInvalidRecords", required = false) skipInvalid: String?
     ): ResponseEntity<TransformResponse> {
         log.info { "file-to-events: file=${file.originalFilename}, spec=$specId, topic=$kafkaTopic" }
-        val result = transformService.fileToEvents(
-            file = file,
-            specId = specId,
-            kafkaTopic = kafkaTopic,
-            skipInvalidRecords = skipInvalid?.toBooleanStrictOrNull() ?: false
+        return ResponseEntity.ok(
+            transformService.fileToEvents(
+                file = file,
+                specId = specId,
+                kafkaTopic = kafkaTopic,
+                skipInvalidRecords = skipInvalid?.toBooleanStrictOrNull() ?: false
+            )
         )
-        return ResponseEntity.ok(result)
     }
 
-    /**
-     * Schedule a transformation — run immediately or with a delay.
-     */
     @PostMapping("/schedule")
     @Operation(
         summary = "Schedule a transformation",
         description = "Schedule a file transformation to run immediately, after a delay, or on a cron schedule"
     )
     fun scheduleTransform(@RequestBody request: TransformRequest): ResponseEntity<TransformResponse> {
-        log.info { "Scheduling transform: $request" }
-        val result = transformService.scheduleTransform(request)
-        return ResponseEntity.ok(result)
+        log.info { "Scheduling transform: specId=${request.specId}, delay=${request.delayMs}ms" }
+        return ResponseEntity.ok(transformService.scheduleTransform(request))
     }
 
-    /**
-     * Get the status of an in-progress or completed transformation.
-     */
     @GetMapping("/status/{correlationId}")
     @Operation(summary = "Get transformation status")
-    fun getStatus(@PathVariable correlationId: String): ResponseEntity<TransformResponse> {
-        return ResponseEntity.ok(transformService.getStatus(correlationId))
-    }
+    fun getStatus(@PathVariable correlationId: String): ResponseEntity<TransformResponse> =
+        ResponseEntity.ok(transformService.getStatus(correlationId))
 }

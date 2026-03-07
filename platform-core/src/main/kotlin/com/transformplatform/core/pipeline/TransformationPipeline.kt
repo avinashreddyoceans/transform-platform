@@ -13,14 +13,6 @@ import java.time.Instant
 
 private val log = KotlinLogging.logger {}
 
-/**
- * The core pipeline orchestrator.
- *
- * Flow: InputStream → Parse → Correct → Validate → Route (valid / invalid) → Write
- *
- * Each stage is independently replaceable. Adding a new stage means
- * adding a new operator to the Flow chain — nothing else changes.
- */
 @Component
 class TransformationPipeline(
     private val parserRegistry: ParserRegistry,
@@ -31,7 +23,7 @@ class TransformationPipeline(
 
     suspend fun execute(request: PipelineRequest): ProcessingResult {
         val startedAt = Instant.now()
-        log.info { "Pipeline starting: spec=${request.spec.id}, file=${request.fileName}, destination=${request.destination}" }
+        log.info { "Pipeline starting: spec=${request.spec.id}, file=${request.fileName}" }
 
         var totalRecords = 0L
         var successfulRecords = 0L
@@ -42,26 +34,17 @@ class TransformationPipeline(
 
         val writer = resolveWriter(request.destination)
 
-        try {
+        return runCatching {
             parserRegistry.parse(request.inputStream, request.spec)
-                .map { record ->
-                    // Stage 1: Auto-correct
-                    correctionEngine.applyCorrections(record, request.spec)
-                }
-                .map { record ->
-                    // Stage 2: Validate
-                    validationEngine.validate(record, request.spec)
-                }
+                .map { correctionEngine.applyCorrections(it, request.spec) }
+                .map { validationEngine.validate(it, request.spec) }
                 .filter { record ->
-                    // Stage 3: Route — skip FATAL errors, count failures
                     totalRecords++
                     when {
                         record.hasFatalErrors -> {
                             failedRecords++
                             record.errors.forEach {
-                                processingErrors.add(
-                                    ProcessingError(record.sequenceNumber, it.field, it.message, it.severity)
-                                )
+                                processingErrors.add(ProcessingError(record.sequenceNumber, it.field, it.message, it.severity))
                             }
                             log.warn { "Record ${record.sequenceNumber} has FATAL errors — skipping" }
                             false
@@ -78,59 +61,55 @@ class TransformationPipeline(
                         }
                     }
                 }
-                .collect { record ->
-                    // Stage 4: Write to destination
-                    writer.write(record, request)
-                }
+                .collect { writer.write(it, request) }
 
             writer.flush(request)
-
-        } catch (e: Exception) {
-            log.error(e) { "Pipeline execution failed for spec=${request.spec.id}" }
-            return ProcessingResult(
-                specId = request.spec.id,
-                fileName = request.fileName,
-                totalRecords = totalRecords,
-                successfulRecords = successfulRecords,
-                failedRecords = failedRecords,
-                correctedRecords = correctedRecords,
-                warnings = warningRecords,
-                startedAt = startedAt,
-                completedAt = Instant.now(),
-                status = ProcessingStatus.FAILED,
-                errors = processingErrors
-            )
-        }
-
-        val status = when {
-            failedRecords > 0 && successfulRecords > 0 -> ProcessingStatus.COMPLETED_WITH_ERRORS
-            failedRecords > 0 -> ProcessingStatus.FAILED
-            warningRecords > 0 -> ProcessingStatus.COMPLETED_WITH_WARNINGS
-            else -> ProcessingStatus.COMPLETED
-        }
-
-        val result = ProcessingResult(
-            specId = request.spec.id,
-            fileName = request.fileName,
-            totalRecords = totalRecords,
-            successfulRecords = successfulRecords,
-            failedRecords = failedRecords,
-            correctedRecords = correctedRecords,
-            warnings = warningRecords,
-            startedAt = startedAt,
-            completedAt = Instant.now(),
-            status = status,
-            errors = processingErrors
-        )
-
-        log.info { "Pipeline complete: $result" }
-        return result
+            determineStatus(failedRecords, successfulRecords, warningRecords)
+        }.fold(
+            onSuccess = { status ->
+                buildResult(request, startedAt, totalRecords, successfulRecords, failedRecords, correctedRecords, warningRecords, processingErrors, status)
+            },
+            onFailure = { e ->
+                log.error(e) { "Pipeline execution failed for spec=${request.spec.id}" }
+                buildResult(request, startedAt, totalRecords, successfulRecords, failedRecords, correctedRecords, warningRecords, processingErrors, ProcessingStatus.FAILED)
+            }
+        ).also { log.info { "Pipeline complete: $it" } }
     }
 
-    private fun resolveWriter(destination: PipelineDestination): RecordWriter {
-        return writers.firstOrNull { it.supports(destination.type) }
+    private fun resolveWriter(destination: PipelineDestination): RecordWriter =
+        writers.firstOrNull { it.supports(destination.type) }
             ?: throw IllegalArgumentException("No writer found for destination type: ${destination.type}")
+
+    private fun determineStatus(failed: Long, successful: Long, warnings: Long): ProcessingStatus = when {
+        failed > 0 && successful > 0 -> ProcessingStatus.COMPLETED_WITH_ERRORS
+        failed > 0 -> ProcessingStatus.FAILED
+        warnings > 0 -> ProcessingStatus.COMPLETED_WITH_WARNINGS
+        else -> ProcessingStatus.COMPLETED
     }
+
+    private fun buildResult(
+        request: PipelineRequest,
+        startedAt: Instant,
+        totalRecords: Long,
+        successfulRecords: Long,
+        failedRecords: Long,
+        correctedRecords: Long,
+        warningRecords: Long,
+        errors: List<ProcessingError>,
+        status: ProcessingStatus
+    ) = ProcessingResult(
+        specId = request.spec.id,
+        fileName = request.fileName,
+        totalRecords = totalRecords,
+        successfulRecords = successfulRecords,
+        failedRecords = failedRecords,
+        correctedRecords = correctedRecords,
+        warnings = warningRecords,
+        startedAt = startedAt,
+        completedAt = Instant.now(),
+        status = status,
+        errors = errors
+    )
 }
 
 data class PipelineRequest(

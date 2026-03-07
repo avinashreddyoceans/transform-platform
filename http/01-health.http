@@ -1,0 +1,72 @@
+# ─── Health & Actuator ────────────────────────────────────────────────────────
+# Spring Boot Actuator endpoints exposed via management.endpoints.web.exposure.
+# All endpoints are available at /actuator/*.
+#
+# Run the "Docker — All Dependencies" config first, then start the app.
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+### Full health report (shows DB, Kafka, disk, liveness, readiness)
+# @name healthFull
+GET {{baseUrl}}/actuator/health
+Accept: application/json
+
+
+### Liveness probe — is the app alive?
+GET {{baseUrl}}/actuator/health/liveness
+Accept: application/json
+
+
+### Readiness probe — is the app ready to serve traffic?
+GET {{baseUrl}}/actuator/health/readiness
+Accept: application/json
+
+
+### Database connectivity
+GET {{baseUrl}}/actuator/health/db
+Accept: application/json
+
+
+### Kafka connectivity
+GET {{baseUrl}}/actuator/health/kafka
+Accept: application/json
+
+
+### Disk space
+GET {{baseUrl}}/actuator/health/diskSpace
+Accept: application/json
+
+
+### Application info (name, version, git sha if configured)
+GET {{baseUrl}}/actuator/info
+Accept: application/json
+
+
+### All registered metrics (names only)
+GET {{baseUrl}}/actuator/metrics
+Accept: application/json
+
+
+### Specific metric — JVM heap usage
+GET {{baseUrl}}/actuator/metrics/jvm.memory.used
+Accept: application/json
+
+
+### Specific metric — active HTTP requests
+GET {{baseUrl}}/actuator/metrics/http.server.requests
+Accept: application/json
+
+
+### Specific metric — transform records processed (custom business metric)
+GET {{baseUrl}}/actuator/metrics/transform.records.processed
+Accept: application/json
+
+
+### Prometheus scrape endpoint (raw text/plain for Prometheus)
+GET {{baseUrl}}/actuator/prometheus
+Accept: text/plain
+
+
+### Active traces (in-memory, last N spans before export to Jaeger)
+GET {{baseUrl}}/actuator/traces
+Accept: application/json

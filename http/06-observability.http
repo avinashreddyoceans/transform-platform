@@ -1,0 +1,218 @@
+# ─── Observability & API Docs ─────────────────────────────────────────────────
+# Quick access to all observability tooling and API documentation.
+# All UIs run locally when "Docker — All Dependencies" is started.
+#
+# Service map:
+#   App            http://localhost:8080
+#   Swagger UI     http://localhost:8080/swagger-ui
+#   Prometheus     http://localhost:9090
+#   Grafana        http://localhost:3000   (admin / admin)
+#   Jaeger         http://localhost:16686
+#   Elasticsearch  http://localhost:9200
+#   Kibana         http://localhost:5601
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+### ── API Documentation ───────────────────────────────────────────────────────
+
+### OpenAPI spec (raw JSON — used by Swagger UI and code generators)
+GET {{baseUrl}}/api-docs
+Accept: application/json
+
+
+### OpenAPI spec in YAML format
+GET {{baseUrl}}/api-docs.yaml
+Accept: application/yaml
+
+
+### Swagger UI (open in browser — interactive API explorer)
+# IntelliJ: Ctrl+Click the URL to open in browser
+GET {{baseUrl}}/swagger-ui
+Accept: text/html
+
+
+### ── App Metrics (Prometheus scrape) ────────────────────────────────────────
+
+### Full Prometheus metrics export (all registered meters)
+GET {{baseUrl}}/actuator/prometheus
+Accept: text/plain
+
+
+### Filter Prometheus output — transform domain metrics only
+# Note: IntelliJ HTTP Client doesn't support response filtering.
+# Use curl instead: curl -s localhost:8080/actuator/prometheus | grep "^transform"
+GET {{baseUrl}}/actuator/prometheus
+Accept: text/plain
+
+
+### ── Prometheus ─────────────────────────────────────────────────────────────
+
+### Prometheus targets — shows if the app scrape target is healthy
+GET http://localhost:9090/api/v1/targets
+Accept: application/json
+
+
+### Query — total transform records processed
+GET http://localhost:9090/api/v1/query?query=transform_records_processed_total
+Accept: application/json
+
+
+### Query — processing duration p99 over last 5 minutes
+GET http://localhost:9090/api/v1/query?query=histogram_quantile(0.99%2C+rate(transform_file_processing_duration_seconds_bucket%5B5m%5D))
+Accept: application/json
+
+
+### Query — failed records by spec over last 10 minutes
+GET http://localhost:9090/api/v1/query?query=sum+by(specId)(increase(transform_records_failed_total%5B10m%5D))
+Accept: application/json
+
+
+### Query — active Kafka producer requests
+GET http://localhost:9090/api/v1/query?query=kafka_producer_record_send_total
+Accept: application/json
+
+
+### Query — JVM heap used
+GET http://localhost:9090/api/v1/query?query=jvm_memory_used_bytes%7Barea%3D"heap"%7D
+Accept: application/json
+
+
+### Prometheus UI (open in browser)
+GET http://localhost:9090
+Accept: text/html
+
+
+### ── Grafana ─────────────────────────────────────────────────────────────────
+
+### Grafana health check
+GET http://localhost:3000/api/health
+Accept: application/json
+
+
+### Grafana dashboards list (requires basic auth admin:admin)
+GET http://localhost:3000/api/search?type=dash-db
+Authorization: Basic YWRtaW46YWRtaW4=
+Accept: application/json
+
+
+### Grafana datasources
+GET http://localhost:3000/api/datasources
+Authorization: Basic YWRtaW46YWRtaW4=
+Accept: application/json
+
+
+### Grafana UI (open in browser — admin/admin on first login)
+# http://localhost:3000
+
+
+### ── Jaeger ──────────────────────────────────────────────────────────────────
+
+### Jaeger health check
+GET http://localhost:16686/api/services
+Accept: application/json
+
+
+### List services reporting traces
+GET http://localhost:16686/api/services
+Accept: application/json
+
+
+### Get traces for transform-platform service (last 20)
+GET http://localhost:16686/api/traces?service=transform-platform&limit=20
+Accept: application/json
+
+
+### Get traces filtered to /api/v1/transform/file-to-events operation
+GET http://localhost:16686/api/traces?service=transform-platform&operation=POST+%2Fapi%2Fv1%2Ftransform%2Ffile-to-events&limit=10
+Accept: application/json
+
+
+### Jaeger UI (open in browser)
+# http://localhost:16686
+
+
+### ── Elasticsearch & Kibana ──────────────────────────────────────────────────
+
+### Elasticsearch cluster health
+GET http://localhost:9200/_cluster/health
+Accept: application/json
+
+
+### Elasticsearch cluster info
+GET http://localhost:9200/
+Accept: application/json
+
+
+### List all indices (shows log indices if OTel Collector ships to ES)
+GET http://localhost:9200/_cat/indices?v
+Accept: text/plain
+
+
+### Search recent transform-platform log events (latest 10)
+GET http://localhost:9200/transform-platform-*/_search
+Content-Type: application/json
+
+{
+  "query": {
+    "match_all": {}
+  },
+  "sort": [
+    { "@timestamp": { "order": "desc" } }
+  ],
+  "size": 10
+}
+
+
+### Search logs for ERROR level in last hour
+GET http://localhost:9200/transform-platform-*/_search
+Content-Type: application/json
+
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "level": "ERROR" } }
+      ],
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": "now-1h",
+              "lte": "now"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    { "@timestamp": { "order": "desc" } }
+  ],
+  "size": 20
+}
+
+
+### Search logs by traceId — correlate a specific request end-to-end
+# Replace <trace-id> with the traceId from a TransformResponse or Jaeger
+GET http://localhost:9200/transform-platform-*/_search
+Content-Type: application/json
+
+{
+  "query": {
+    "match": {
+      "traceId": "<trace-id>"
+    }
+  },
+  "sort": [
+    { "@timestamp": { "order": "asc" } }
+  ]
+}
+
+
+### Kibana health check
+GET http://localhost:5601/api/status
+Accept: application/json
+
+
+### Kibana UI (open in browser — create index pattern transform-platform-* on first use)
+# http://localhost:5601

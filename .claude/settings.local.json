@@ -14,7 +14,9 @@
       "Bash(./gradlew :platform-api:compileKotlin:*)",
       "Bash(./gradlew build:*)",
       "Bash(./gradlew :platform-core:test:*)",
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "Bash(./gradlew :platform-api:dependencies:*)",
+      "Bash(jar tf:*)"
     ]
   }
 }

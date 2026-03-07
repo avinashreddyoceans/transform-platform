@@ -1,6 +1,11 @@
 package com.transformplatform.api.dto
 
-import com.transformplatform.core.spec.model.*
+import com.transformplatform.core.spec.model.FileFormat
+import com.transformplatform.core.spec.model.FieldSpec
+import com.transformplatform.core.spec.model.ValidationRule
+import com.transformplatform.core.spec.model.CorrectionRule
+import com.transformplatform.core.spec.model.OutputSpec
+import com.transformplatform.core.spec.model.Severity
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import java.time.Instant
@@ -51,7 +56,7 @@ data class TransformRequest(
     val outputFilePath: String? = null,
     val skipInvalidRecords: Boolean = false,
     val delayMs: Long = 0,
-    val cronExpression: String? = null,       // for scheduled runs
+    val cronExpression: String? = null,
     val runOnce: Boolean = true
 )
 
@@ -81,5 +86,5 @@ data class ErrorDetail(
     val sequenceNumber: Long,
     val field: String?,
     val message: String,
-    val severity: String
+    val severity: Severity
 )

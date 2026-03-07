@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!--
+        Transform Platform — Structured JSON Logging
+        ─────────────────────────────────────────────
+        Every log line is a JSON object containing:
+          - timestamp, level, logger, message
+          - traceId, spanId  (injected by Micrometer Tracing / OTel)
+          - correlationId    (injected by CorrelationIdFilter via MDC)
+          - profileId, windowId, specId  (set by domain code via MDC)
+          - service, env
+
+        Use the CONSOLE_TEXT appender profile for human-readable local dev output.
+        The JSON appender is used by default and is what ships to Elasticsearch.
+    -->
+
+    <springProperty scope="context" name="appName"  source="spring.application.name"        defaultValue="transform-platform"/>
+    <springProperty scope="context" name="appEnv"   source="spring.profiles.active"         defaultValue="local"/>
+
+    <!-- ── Rolling file appender (always on — useful for tailing / debugging) ── -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${user.dir}/logs/transform-platform.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${user.dir}/logs/transform-platform.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>200MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <version>[ignore]</version>
+                <levelValue>[ignore]</levelValue>
+            </fieldNames>
+            <customFields>{"service":"${appName}","env":"${appEnv}"}</customFields>
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>spanId</includeMdcKeyName>
+            <includeMdcKeyName>correlationId</includeMdcKeyName>
+            <includeMdcKeyName>profileId</includeMdcKeyName>
+            <includeMdcKeyName>windowId</includeMdcKeyName>
+            <includeMdcKeyName>specId</includeMdcKeyName>
+            <includeMdcKeyName>clientId</includeMdcKeyName>
+            <shortenedLoggerNameLength>36</shortenedLoggerNameLength>
+        </encoder>
+    </appender>
+
+    <!-- ── JSON appender (default — used in all environments) ──────────────── -->
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- Core fields -->
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <version>[ignore]</version>
+                <levelValue>[ignore]</levelValue>
+            </fieldNames>
+
+            <!-- Static fields always present on every log line -->
+            <customFields>{"service":"${appName}","env":"${appEnv}"}</customFields>
+
+            <!-- Include MDC fields (traceId, spanId, correlationId, profileId, etc.) -->
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>spanId</includeMdcKeyName>
+            <includeMdcKeyName>correlationId</includeMdcKeyName>
+            <includeMdcKeyName>profileId</includeMdcKeyName>
+            <includeMdcKeyName>windowId</includeMdcKeyName>
+            <includeMdcKeyName>specId</includeMdcKeyName>
+            <includeMdcKeyName>clientId</includeMdcKeyName>
+
+            <!-- Short class name for readability -->
+            <shortenedLoggerNameLength>36</shortenedLoggerNameLength>
+
+            <!-- Include stack traces inline (Kibana can parse them) -->
+            <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                <maxDepthPerCause>20</maxDepthPerCause>
+                <maxLength>8192</maxLength>
+                <rootCauseFirst>true</rootCauseFirst>
+            </throwableConverter>
+        </encoder>
+    </appender>
+
+    <!-- ── Human-readable appender (activate with profile=dev-text) ─────────── -->
+    <springProfile name="dev-text">
+        <appender name="TEXT_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) [%X{traceId:-no-trace}] [%X{correlationId:-no-corr}] %cyan(%logger{36}) - %msg%n%ex</pattern>
+            </encoder>
+        </appender>
+        <root level="INFO">
+            <appender-ref ref="TEXT_CONSOLE"/>
+            <appender-ref ref="FILE"/>
+        </root>
+    </springProfile>
+
+    <!-- ── Default: JSON to console (picked up by Docker / log shippers) ────── -->
+    <springProfile name="!dev-text">
+        <root level="INFO">
+            <appender-ref ref="JSON_CONSOLE"/>
+            <appender-ref ref="FILE"/>
+        </root>
+    </springProfile>
+
+    <!-- ── Log levels ────────────────────────────────────────────────────────── -->
+    <logger name="com.transformplatform"           level="DEBUG"/>
+    <logger name="org.springframework.kafka"       level="INFO"/>
+    <logger name="org.hibernate.SQL"               level="INFO"/>
+    <!-- Suppress noisy OTel startup logs -->
+    <logger name="io.opentelemetry"                level="WARN"/>
+    <logger name="io.micrometer.tracing"           level="WARN"/>
+
+</configuration>

@@ -27,6 +27,16 @@ dependencies {
     // API Docs
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0")
 
+    // ── Observability ────────────────────────────────────────────────────────
+    // Prometheus metrics registry (exposes /actuator/prometheus)
+    implementation("io.micrometer:micrometer-registry-prometheus")
+    // Micrometer Tracing → OpenTelemetry bridge (Spring Boot 3.x built-in tracing)
+    implementation("io.micrometer:micrometer-tracing-bridge-otel")
+    // OTel OTLP exporter — sends traces + metrics to OTel Collector
+    implementation("io.opentelemetry:opentelemetry-exporter-otlp")
+    // Structured JSON logging for Elasticsearch/Kibana ingestion
+    implementation("net.logstash.logback:logstash-logback-encoder:7.4")
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
 }

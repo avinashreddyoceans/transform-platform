@@ -42,10 +42,7 @@ class FixedWidthFileParser : FileParser {
 
             var line = reader.readLine()
             while (line != null) {
-                if (line.isNotBlank()) {
-                    val record = parseLine(line, spec, sequence++)
-                    emit(record)
-                }
+                if (line.isNotBlank()) emit(parseLine(line, spec, sequence++))
                 line = reader.readLine()
             }
         }
@@ -58,17 +55,20 @@ class FixedWidthFileParser : FileParser {
         val errors = mutableListOf<ParseError>()
 
         spec.fields.forEach { fieldSpec ->
-            val start = fieldSpec.startPosition!!
-            val end = start + fieldSpec.length!!
+            val start = requireNotNull(fieldSpec.startPosition) {
+                "startPosition must be set — guaranteed by validateSpec"
+            }
+            val end = start + requireNotNull(fieldSpec.length) {
+                "length must be set — guaranteed by validateSpec"
+            }
 
             if (start >= line.length) {
-                if (fieldSpec.required) {
+                if (fieldSpec.required)
                     errors.add(ParseError(
                         field = fieldSpec.name,
                         message = "Line too short to extract field '${fieldSpec.name}' at position $start",
                         severity = Severity.ERROR
                     ))
-                }
                 return@forEach
             }
 
@@ -78,46 +78,35 @@ class FixedWidthFileParser : FileParser {
             error?.let { errors.add(it) }
         }
 
-        return ParsedRecord(
-            sequenceNumber = sequenceNumber,
-            fields = fields,
-            rawContent = line,
-            errors = errors
-        )
+        return ParsedRecord(sequenceNumber = sequenceNumber, fields = fields, rawContent = line, errors = errors)
     }
 
     private fun coerceValue(raw: String, fieldSpec: FieldSpec): Pair<Any?, ParseError?> {
         if (raw.isBlank()) {
-            if (fieldSpec.required && !fieldSpec.nullable) {
+            if (fieldSpec.required && !fieldSpec.nullable)
                 return Pair(
                     fieldSpec.defaultValue,
-                    ParseError(
-                        field = fieldSpec.name,
-                        message = "Required field '${fieldSpec.name}' is blank",
-                        severity = Severity.ERROR
-                    )
+                    ParseError(field = fieldSpec.name, message = "Required field '${fieldSpec.name}' is blank", severity = Severity.ERROR)
                 )
-            }
             return Pair(fieldSpec.defaultValue, null)
         }
 
-        return try {
+        return runCatching {
             when (fieldSpec.type) {
                 FieldType.STRING, FieldType.ALPHANUMERIC -> Pair(raw, null)
                 FieldType.INTEGER -> Pair(raw.trim().toInt(), null)
                 FieldType.LONG -> Pair(raw.trim().toLong(), null)
                 FieldType.DECIMAL -> Pair(raw.trim().toBigDecimal(), null)
                 FieldType.AMOUNT -> {
-                    // Implied decimal: last N digits are cents based on scale
                     val scale = fieldSpec.scale ?: 2
                     val numeric = raw.trim().toLong()
-                    val divisor = Math.pow(10.0, scale.toDouble()).toLong()
-                    Pair(numeric.toBigDecimal().divide(divisor.toBigDecimal()), null)
+                    val divisor = 10.0.toBigDecimal().pow(scale)
+                    Pair(numeric.toBigDecimal().divide(divisor), null)
                 }
-                FieldType.BOOLEAN -> Pair(raw.trim() in listOf("1", "Y", "T", "true"), null)
+                FieldType.BOOLEAN -> Pair(raw.trim() in setOf("1", "Y", "T", "true"), null)
                 else -> Pair(raw, null)
             }
-        } catch (e: NumberFormatException) {
+        }.getOrElse {
             Pair(
                 raw,
                 ParseError(

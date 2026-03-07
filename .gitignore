@@ -1,6 +1,8 @@
 # ─── IntelliJ IDEA ────────────────────────────────────────────────────────────
-.idea/
-# Track shared run configurations so teammates get them on clone
+# Ignore all .idea/ contents except run configurations.
+# IMPORTANT: use .idea/* (not .idea/) so that git descends into .idea/
+# and honours the !runConfigurations/ negation below.
+.idea/*
 !.idea/runConfigurations/
 *.iml
 *.iws
@@ -59,3 +61,6 @@ website/.docusaurus/
 website/build/
 # Built output — deployed via GitHub Actions Pages, never committed to main
 /docs/
+
+# HTTP Client — private env contains real tokens, never commit
+http/http-client.private.env.json

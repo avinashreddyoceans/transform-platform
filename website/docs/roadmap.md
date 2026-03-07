@@ -71,6 +71,47 @@ platform-api
 
 ---
 
+## Phase 0.5 — Observability Foundation
+
+**Goal:** Full three-pillar observability — logs, metrics, distributed traces — wired before Phase 1 so every domain event is instrumented from day one.
+
+**Stack:**
+
+| Signal | Tool | Port |
+|---|---|---|
+| Traces | Jaeger (via OTel Collector) | `:16686` |
+| Metrics | Prometheus → Grafana | `:9090` / `:3000` |
+| Logs | Elasticsearch → Kibana | `:9200` / `:5601` |
+
+**Code changes only (no new modules):**
+
+- [ ] `platform-api/build.gradle.kts` — add `micrometer-registry-prometheus`, `micrometer-tracing-bridge-otel`, `opentelemetry-exporter-otlp`, `logstash-logback-encoder`
+- [ ] `application.yml` — add OTel OTLP endpoint config + tracing sampling rate
+- [ ] `logback-spring.xml` — new: structured JSON logs with `traceId`, `spanId`, `correlationId` in every line
+- [ ] `ObservabilityConfig.kt` — Micrometer common tags (service name, env)
+- [ ] `CorrelationIdFilter.kt` — inject + propagate `X-Correlation-ID`, set MDC per request
+- [ ] `TransformMetrics.kt` — custom business counters/timers for records processed, file duration, window events, action execution
+
+**Docker services to add:**
+
+- [ ] `otel-collector` — central hub; receives OTLP from app, routes to Jaeger + Prometheus + Elasticsearch
+- [ ] `elasticsearch` — log storage (single-node, 512 MB heap for local dev)
+- [ ] `kibana` — log dashboards
+- [ ] `prometheus` — metrics storage; scrapes app + OTel Collector
+- [ ] `grafana` — metrics dashboards with auto-provisioned datasources + pre-built dashboard
+- [ ] `jaeger` — distributed tracing UI (all-in-one image)
+
+**New config files in `.docker/`:**
+
+- [ ] `otel-collector-config.yaml` — OTLP receivers → batch → Jaeger + Prometheus + ES exporters
+- [ ] `prometheus.yml` — scrape configs for app and OTel Collector
+- [ ] `grafana/provisioning/datasources.yml` — auto-wire Prometheus + Jaeger
+- [ ] `grafana/provisioning/dashboards/transform-platform.json` — JVM + HTTP + business metrics dashboard
+
+**Deliverable:** `docker compose up` starts the full stack. App logs are JSON with trace IDs. Traces appear in Jaeger. Business metrics appear in Grafana. All of this is in place before Phase 1 domain code is written.
+
+---
+
 ## Phase 1 — Core Domain: Profile, Window, Action
 
 **Goal:** The aggregate root that drives batch workflows — the platform's unique value.

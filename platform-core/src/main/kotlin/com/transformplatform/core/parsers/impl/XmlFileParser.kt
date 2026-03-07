@@ -98,19 +98,15 @@ class XmlFileParser : FileParser {
         )
     }
 
-    private fun extractValue(element: Element, fieldSpec: FieldSpec, xPath: javax.xml.xpath.XPath): String? {
-        return try {
+    private fun extractValue(element: Element, fieldSpec: FieldSpec, xPath: javax.xml.xpath.XPath): String? =
+        runCatching {
             when {
                 fieldSpec.xmlAttribute != null -> element.getAttribute(fieldSpec.xmlAttribute)?.takeIf { it.isNotBlank() }
-                fieldSpec.path != null -> {
-                    val result = xPath.evaluate(fieldSpec.path, element, XPathConstants.STRING) as String
-                    result.takeIf { it.isNotBlank() }
-                }
+                fieldSpec.path != null -> (xPath.evaluate(fieldSpec.path, element, XPathConstants.STRING) as String).takeIf { it.isNotBlank() }
                 else -> null
             }
-        } catch (e: Exception) {
-            log.warn { "Failed to extract XML field '${fieldSpec.name}': ${e.message}" }
+        }.getOrElse {
+            log.warn { "Failed to extract XML field '${fieldSpec.name}': ${it.message}" }
             null
         }
-    }
 }

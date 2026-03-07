@@ -1,0 +1,294 @@
+# ─── File Spec — Fixed-Width ──────────────────────────────────────────────────
+# CRUD operations for fixed-width / NACHA ACH file format specifications.
+#
+# Fixed-width fields are addressed by startPosition + length (1-indexed).
+# Example domain: NACHA ACH Entry Detail record (94-character fixed-width).
+#
+# NACHA Entry Detail record layout (abbreviated):
+#   Pos  1      Len  1   — Record Type Code (always "6")
+#   Pos  2      Len  3   — Transaction Code (22=checking credit, 27=checking debit …)
+#   Pos  5      Len  9   — RDFI Routing Transit Number
+#   Pos 14      Len  1   — Check Digit
+#   Pos 15      Len 17   — DFI Account Number
+#   Pos 32      Len 10   — Amount (in cents, implied 2 decimal places)
+#   Pos 42      Len 15   — Individual Identification Number
+#   Pos 57      Len 22   — Individual Name
+#   Pos 79      Len  2   — Discretionary Data
+#   Pos 81      Len  7   — Addenda Record Indicator + Trace Number
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+### Create fixed-width spec — NACHA ACH Entry Detail record
+# @name createFixedWidthSpec
+POST {{baseUrl}}/api/v1/specs
+Content-Type: application/json
+
+{
+  "name": "nacha-ach-entry-detail-v1",
+  "description": "NACHA ACH Entry Detail record — 94-character fixed-width",
+  "version": "1.0",
+  "format": "FIXED_WIDTH",
+  "encoding": "UTF-8",
+  "hasHeader": false,
+  "skipLinesCount": 1,
+  "fields": [
+    {
+      "name": "recordTypeCode",
+      "displayName": "Record Type Code",
+      "type": "STRING",
+      "startPosition": 1,
+      "length": 1,
+      "required": true,
+      "allowedValues": ["6"],
+      "description": "Always '6' for Entry Detail"
+    },
+    {
+      "name": "transactionCode",
+      "displayName": "Transaction Code",
+      "type": "STRING",
+      "startPosition": 2,
+      "length": 3,
+      "required": true,
+      "allowedValues": ["022", "023", "027", "028", "032", "037", "038"],
+      "description": "022=checking credit, 027=checking debit, 032=savings credit, 037=savings debit"
+    },
+    {
+      "name": "routingNumber",
+      "displayName": "RDFI Routing Transit Number",
+      "type": "ROUTING_NUMBER",
+      "startPosition": 5,
+      "length": 9,
+      "required": true,
+      "sensitive": true,
+      "validationRegex": "^[0-9]{9}$",
+      "description": "8-digit routing + 1-digit check digit"
+    },
+    {
+      "name": "accountNumber",
+      "displayName": "DFI Account Number",
+      "type": "ACCOUNT_NUMBER",
+      "startPosition": 15,
+      "length": 17,
+      "required": true,
+      "sensitive": true,
+      "description": "Left-justified, space-padded"
+    },
+    {
+      "name": "amount",
+      "displayName": "Amount",
+      "type": "AMOUNT",
+      "startPosition": 32,
+      "length": 10,
+      "required": true,
+      "scale": 2,
+      "description": "10 digits, implied 2 decimal places (cents). e.g. 0000150000 = $1,500.00"
+    },
+    {
+      "name": "individualId",
+      "displayName": "Individual Identification Number",
+      "type": "STRING",
+      "startPosition": 42,
+      "length": 15,
+      "required": false,
+      "nullable": true,
+      "description": "Receiver's ID at the originator — optional"
+    },
+    {
+      "name": "individualName",
+      "displayName": "Individual Name",
+      "type": "STRING",
+      "startPosition": 57,
+      "length": 22,
+      "required": true,
+      "maxLength": 22,
+      "description": "Receiver's name, left-justified, space-padded"
+    },
+    {
+      "name": "traceNumber",
+      "displayName": "Trace Number",
+      "type": "STRING",
+      "startPosition": 88,
+      "length": 7,
+      "required": true,
+      "validationRegex": "^[0-9]{7}$",
+      "description": "Last 7 digits of ODFI's trace number sequence"
+    }
+  ],
+  "validationRules": [
+    {
+      "ruleId": "amount-non-zero",
+      "field": "amount",
+      "ruleType": "MIN_VALUE",
+      "value": "0.01",
+      "message": "ACH amount must be greater than zero",
+      "severity": "ERROR"
+    },
+    {
+      "ruleId": "individual-name-not-empty",
+      "field": "individualName",
+      "ruleType": "NOT_EMPTY",
+      "message": "Receiver name is required on all Entry Detail records",
+      "severity": "FATAL"
+    },
+    {
+      "ruleId": "routing-regex",
+      "field": "routingNumber",
+      "ruleType": "REGEX",
+      "value": "^[0-9]{9}$",
+      "message": "Routing number must be exactly 9 digits",
+      "severity": "ERROR"
+    }
+  ],
+  "correctionRules": [
+    {
+      "ruleId": "trim-account",
+      "field": "accountNumber",
+      "correctionType": "TRIM",
+      "applyOrder": 1
+    },
+    {
+      "ruleId": "trim-individual-id",
+      "field": "individualId",
+      "correctionType": "TRIM",
+      "applyOrder": 2
+    },
+    {
+      "ruleId": "trim-individual-name",
+      "field": "individualName",
+      "correctionType": "TRIM",
+      "applyOrder": 3
+    }
+  ],
+  "metadata": {
+    "standard": "NACHA-2024",
+    "recordType": "6",
+    "team": "ach-processing"
+  }
+}
+
+> {%
+  client.test("Status is 201 Created", function() {
+    client.assert(response.status === 201, "Expected 201, got " + response.status);
+  });
+  client.test("Format is FIXED_WIDTH", function() {
+    client.assert(response.body.format === "FIXED_WIDTH", "Expected FIXED_WIDTH format");
+  });
+  client.global.set("fixedWidthSpecId", response.body.id);
+  client.log("Fixed-width spec created: " + response.body.id);
+%}
+
+
+### List all fixed-width specs
+GET {{baseUrl}}/api/v1/specs?format=FIXED_WIDTH&page=0&size=20
+Accept: application/json
+
+
+### Get fixed-width spec by ID
+GET {{baseUrl}}/api/v1/specs/{{fixedWidthSpecId}}
+Accept: application/json
+
+> {%
+  client.test("Status is 200", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+  });
+  client.test("Field count is 8", function() {
+    client.assert(response.body.fieldCount === 8, "Expected 8 fields");
+  });
+%}
+
+
+### Validate fixed-width spec
+POST {{baseUrl}}/api/v1/specs/{{fixedWidthSpecId}}/validate
+Accept: application/json
+
+
+### Update fixed-width spec — add addenda record indicator field
+PUT {{baseUrl}}/api/v1/specs/{{fixedWidthSpecId}}
+Content-Type: application/json
+
+{
+  "name": "nacha-ach-entry-detail-v1",
+  "description": "NACHA ACH Entry Detail record — 94-character fixed-width",
+  "version": "1.1",
+  "format": "FIXED_WIDTH",
+  "encoding": "UTF-8",
+  "hasHeader": false,
+  "skipLinesCount": 1,
+  "fields": [
+    {
+      "name": "recordTypeCode",
+      "type": "STRING",
+      "startPosition": 1,
+      "length": 1,
+      "required": true,
+      "allowedValues": ["6"]
+    },
+    {
+      "name": "transactionCode",
+      "type": "STRING",
+      "startPosition": 2,
+      "length": 3,
+      "required": true,
+      "allowedValues": ["022", "023", "027", "028", "032", "037", "038"]
+    },
+    {
+      "name": "routingNumber",
+      "type": "ROUTING_NUMBER",
+      "startPosition": 5,
+      "length": 9,
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "name": "accountNumber",
+      "type": "ACCOUNT_NUMBER",
+      "startPosition": 15,
+      "length": 17,
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "name": "amount",
+      "type": "AMOUNT",
+      "startPosition": 32,
+      "length": 10,
+      "required": true,
+      "scale": 2
+    },
+    {
+      "name": "individualName",
+      "type": "STRING",
+      "startPosition": 57,
+      "length": 22,
+      "required": true
+    },
+    {
+      "name": "addendaIndicator",
+      "displayName": "Addenda Record Indicator",
+      "type": "BOOLEAN",
+      "startPosition": 79,
+      "length": 1,
+      "required": true,
+      "allowedValues": ["0", "1"],
+      "defaultValue": "0",
+      "description": "Added in v1.1 — 1 if addenda record follows"
+    },
+    {
+      "name": "traceNumber",
+      "type": "STRING",
+      "startPosition": 88,
+      "length": 7,
+      "required": true
+    }
+  ],
+  "validationRules": [],
+  "correctionRules": [],
+  "metadata": {
+    "standard": "NACHA-2024",
+    "team": "ach-processing"
+  }
+}
+
+
+### Delete fixed-width spec
+DELETE {{baseUrl}}/api/v1/specs/{{fixedWidthSpecId}}

@@ -1,24 +1,25 @@
 package com.transformplatform.api.service
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.transformplatform.api.dto.CreateSpecRequest
 import com.transformplatform.api.dto.SpecResponse
+import com.transformplatform.core.spec.model.FileFormat
 import com.transformplatform.core.spec.model.FileSpec
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import java.time.Instant
-import java.util.*
+import java.util.UUID
 
 private val log = KotlinLogging.logger {}
 
 @Service
-class SpecService(private val objectMapper: ObjectMapper) {
+class SpecService {
 
-    // In-memory store for now — replace with PostgreSQL JPA repository
+    // In-memory store — replace with JPA repository in Phase 0
     private val specStore = mutableMapOf<String, FileSpec>()
 
     fun createSpec(request: CreateSpecRequest): SpecResponse {
         val id = UUID.randomUUID().toString()
+        val now = Instant.now()
         val spec = FileSpec(
             id = id,
             name = request.name,
@@ -34,31 +35,27 @@ class SpecService(private val objectMapper: ObjectMapper) {
             correctionRules = request.correctionRules,
             outputSpec = request.outputSpec,
             metadata = request.metadata,
-            createdAt = Instant.now(),
-            updatedAt = Instant.now()
+            createdAt = now,
+            updatedAt = now
         )
         specStore[id] = spec
         log.info { "Created spec: id=$id, name=${spec.name}, format=${spec.format}" }
         return spec.toResponse()
     }
 
-    fun getSpec(id: String): SpecResponse =
-        (specStore[id] ?: throw NoSuchElementException("Spec not found: $id")).toResponse()
+    fun getSpec(id: String): SpecResponse = findOrThrow(id).toResponse()
 
-    fun loadSpec(id: String): FileSpec =
-        specStore[id] ?: throw NoSuchElementException("Spec not found: $id")
+    fun loadSpec(id: String): FileSpec = findOrThrow(id)
 
-    fun listSpecs(format: String?, page: Int, size: Int): List<SpecResponse> {
-        return specStore.values
-            .filter { format == null || it.format.name == format.uppercase() }
+    fun listSpecs(format: String?, page: Int, size: Int): List<SpecResponse> =
+        specStore.values
+            .filter { format == null || it.format == FileFormat.valueOf(format.uppercase()) }
             .drop(page * size)
             .take(size)
             .map { it.toResponse() }
-    }
 
     fun updateSpec(id: String, request: CreateSpecRequest): SpecResponse {
-        val existing = specStore[id] ?: throw NoSuchElementException("Spec not found: $id")
-        val updated = existing.copy(
+        val updated = findOrThrow(id).copy(
             name = request.name,
             description = request.description,
             format = request.format,
@@ -79,11 +76,10 @@ class SpecService(private val objectMapper: ObjectMapper) {
     }
 
     fun validateSpec(id: String): Map<String, Any> {
-        val spec = specStore[id] ?: throw NoSuchElementException("Spec not found: $id")
-        val issues = mutableListOf<String>()
-        if (spec.fields.isEmpty()) issues.add("Spec has no fields defined")
-        spec.fields.filter { it.required && it.defaultValue == null && !it.nullable }
-            .forEach { /* required fields without defaults — warn if no validation rule exists */ }
+        val spec = findOrThrow(id)
+        val issues = buildList {
+            if (spec.fields.isEmpty()) add("Spec has no fields defined")
+        }
         return mapOf(
             "specId" to id,
             "valid" to issues.isEmpty(),
@@ -92,6 +88,9 @@ class SpecService(private val objectMapper: ObjectMapper) {
             "validationRuleCount" to spec.validationRules.size
         )
     }
+
+    private fun findOrThrow(id: String): FileSpec =
+        specStore[id] ?: throw NoSuchElementException("Spec not found: $id")
 
     private fun FileSpec.toResponse() = SpecResponse(
         id = id,

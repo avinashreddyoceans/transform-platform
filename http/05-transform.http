@@ -1,0 +1,241 @@
+# ─── Transform ────────────────────────────────────────────────────────────────
+# File transformation endpoints.
+#
+# Three operations:
+#   1. POST /api/v1/transform/file-to-events   — parse file, publish to Kafka (multipart)
+#   2. POST /api/v1/transform/schedule         — schedule a transformation job
+#   3. GET  /api/v1/transform/status/{id}      — poll job status by correlationId
+#
+# Prerequisites:
+#   • Run 02-spec-csv.http first to get a valid csvSpecId.
+#   • Docker dependencies must be running (Kafka + Postgres).
+#   • Sample files are in http/samples/ — see comments below.
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+### ── File to Events (multipart) ─────────────────────────────────────────────
+
+### Transform CSV file → publish records to Kafka (run immediately)
+# Requires: a real CSV file on your filesystem.
+# In IntelliJ: click the folder icon next to the file path to browse.
+# @name fileToEvents
+POST {{baseUrl}}/api/v1/transform/file-to-events
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="specId"
+
+{{csvSpecId}}
+--boundary
+Content-Disposition: form-data; name="kafkaTopic"
+
+{{kafkaTopic}}
+--boundary
+Content-Disposition: form-data; name="skipInvalidRecords"
+
+false
+--boundary
+Content-Disposition: form-data; name="file"; filename="transactions.csv"
+Content-Type: text/csv
+
+TRANSACTION_ID|ACCOUNT_NO|ROUTING_NO|AMOUNT|TXN_DATE|TXN_TYPE|DESCRIPTION|STATUS
+TXN-001|123456789012|021000021|1500.00|2025-01-15|CREDIT|Payroll deposit|POSTED
+TXN-002|123456789012|021000021|49.99|2025-01-15|DEBIT|Utility payment|POSTED
+TXN-003|987654321098|021000021|250.00|2025-01-16|CREDIT|Refund|POSTED
+--boundary--
+
+> {%
+  client.test("Status is 200", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+  });
+  client.test("Has correlationId", function() {
+    client.assert(response.body.correlationId !== undefined, "Missing correlationId");
+  });
+  if (response.body.correlationId) {
+    client.global.set("correlationId", response.body.correlationId);
+    client.log("Transform started: " + response.body.correlationId);
+  }
+%}
+
+
+### Transform with skipInvalidRecords=true — tolerant mode
+POST {{baseUrl}}/api/v1/transform/file-to-events
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="specId"
+
+{{csvSpecId}}
+--boundary
+Content-Disposition: form-data; name="kafkaTopic"
+
+{{kafkaTopic}}
+--boundary
+Content-Disposition: form-data; name="skipInvalidRecords"
+
+true
+--boundary
+Content-Disposition: form-data; name="file"; filename="transactions-with-errors.csv"
+Content-Type: text/csv
+
+TRANSACTION_ID|ACCOUNT_NO|ROUTING_NO|AMOUNT|TXN_DATE|TXN_TYPE|DESCRIPTION|STATUS
+TXN-GOOD|123456789012|021000021|100.00|2025-01-15|CREDIT|Valid record|POSTED
+TXN-BAD||021000021|100.00|2025-01-15|CREDIT|Missing account|POSTED
+TXN-GOOD2|987654321098|021000021|50.00|2025-01-16|DEBIT|Valid record|POSTED
+--boundary--
+
+
+### Transform fixed-width NACHA file → Kafka
+POST {{baseUrl}}/api/v1/transform/file-to-events
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="specId"
+
+{{fixedWidthSpecId}}
+--boundary
+Content-Disposition: form-data; name="kafkaTopic"
+
+transform.ach.records.local
+--boundary
+Content-Disposition: form-data; name="skipInvalidRecords"
+
+false
+--boundary
+Content-Disposition: form-data; name="file"; filename="nacha-entries.txt"
+Content-Type: text/plain
+
+6022021000021123456789012    0000150000123456789     JOHN DOE               0081000010000001
+6027021000021987654321098    0000049990              JANE SMITH             0081000010000002
+--boundary--
+
+
+### ── Schedule Transform ─────────────────────────────────────────────────────
+
+### Schedule an immediate transform (no delay, no cron — run once now)
+# @name scheduleImmediate
+POST {{baseUrl}}/api/v1/transform/schedule
+Content-Type: application/json
+
+{
+  "specId": "{{csvSpecId}}",
+  "sourceType": "LOCAL_PATH",
+  "sourceFilePath": "/tmp/transform-platform/transactions.csv",
+  "destinationType": "KAFKA_TOPIC",
+  "kafkaTopic": "{{kafkaTopic}}",
+  "skipInvalidRecords": false,
+  "delayMs": 0,
+  "runOnce": true
+}
+
+> {%
+  client.test("Status is 200", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+  });
+  if (response.body.correlationId) {
+    client.global.set("correlationId", response.body.correlationId);
+    client.log("Scheduled job: " + response.body.correlationId);
+  }
+%}
+
+
+### Schedule a delayed transform — run 30 seconds from now
+POST {{baseUrl}}/api/v1/transform/schedule
+Content-Type: application/json
+
+{
+  "specId": "{{csvSpecId}}",
+  "sourceType": "LOCAL_PATH",
+  "sourceFilePath": "/tmp/transform-platform/transactions.csv",
+  "destinationType": "KAFKA_TOPIC",
+  "kafkaTopic": "{{kafkaTopic}}",
+  "skipInvalidRecords": false,
+  "delayMs": 30000,
+  "runOnce": true
+}
+
+
+### Schedule a recurring cron-based transform — every day at 02:00
+POST {{baseUrl}}/api/v1/transform/schedule
+Content-Type: application/json
+
+{
+  "specId": "{{csvSpecId}}",
+  "sourceType": "LOCAL_PATH",
+  "sourceFilePath": "/tmp/transform-platform/daily-transactions.csv",
+  "destinationType": "KAFKA_TOPIC",
+  "kafkaTopic": "{{kafkaTopic}}",
+  "skipInvalidRecords": false,
+  "delayMs": 0,
+  "cronExpression": "0 2 * * *",
+  "runOnce": false
+}
+
+
+### Schedule with output file (file-to-file, no Kafka)
+POST {{baseUrl}}/api/v1/transform/schedule
+Content-Type: application/json
+
+{
+  "specId": "{{xmlSpecId}}",
+  "sourceType": "LOCAL_PATH",
+  "sourceFilePath": "/tmp/transform-platform/payments.xml",
+  "destinationType": "OUTPUT_FILE",
+  "outputFilePath": "/tmp/transform-platform/output/payments-normalized.json",
+  "skipInvalidRecords": false,
+  "delayMs": 0,
+  "runOnce": true
+}
+
+
+### ── Status ──────────────────────────────────────────────────────────────────
+
+### Poll transformation status by correlationId
+# @name getStatus
+GET {{baseUrl}}/api/v1/transform/status/{{correlationId}}
+Accept: application/json
+
+> {%
+  client.test("Status is 200", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+  });
+  client.test("Has status field", function() {
+    client.assert(response.body.status !== undefined, "Missing status field");
+  });
+  client.log("Job status: " + response.body.status +
+    " | total=" + response.body.totalRecords +
+    " ok=" + response.body.successfulRecords +
+    " failed=" + response.body.failedRecords);
+%}
+
+
+### ── Error cases ─────────────────────────────────────────────────────────────
+
+### Status for unknown correlationId (expect 404)
+GET {{baseUrl}}/api/v1/transform/status/00000000-0000-0000-0000-000000000000
+Accept: application/json
+
+> {%
+  client.test("Status is 404 Not Found", function() {
+    client.assert(response.status === 404, "Expected 404, got " + response.status);
+  });
+%}
+
+
+### Schedule with invalid specId (expect 404)
+POST {{baseUrl}}/api/v1/transform/schedule
+Content-Type: application/json
+
+{
+  "specId": "00000000-0000-0000-0000-000000000000",
+  "sourceType": "LOCAL_PATH",
+  "sourceFilePath": "/tmp/file.csv",
+  "kafkaTopic": "{{kafkaTopic}}",
+  "runOnce": true
+}
+
+> {%
+  client.test("Status is 404 Not Found", function() {
+    client.assert(response.status === 404, "Expected 404, got " + response.status);
+  });
+%}

@@ -1,0 +1,50 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Docker — Start All Dependencies",
+      "type": "shell",
+      "command": "docker compose -f .docker/docker-compose.yml up -d",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "close": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker — Stop All Dependencies",
+      "type": "shell",
+      "command": "docker compose -f .docker/docker-compose.yml down",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Gradle — Build",
+      "type": "shell",
+      "command": "./gradlew build -x test",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": ["$gradle"]
+    },
+    {
+      "label": "Gradle — Test",
+      "type": "shell",
+      "command": "./gradlew test",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": ["$gradle"]
+    }
+  ]
+}

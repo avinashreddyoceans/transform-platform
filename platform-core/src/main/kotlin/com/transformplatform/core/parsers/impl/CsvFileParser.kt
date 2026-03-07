@@ -15,6 +15,10 @@ private val log = KotlinLogging.logger {}
 @Component
 class CsvFileParser : FileParser {
 
+    private companion object {
+        val BOOLEAN_TRUE_VALUES = setOf("true", "1", "yes", "y")
+    }
+
     override val parserName = "CSV_PARSER"
 
     override fun supports(format: FileFormat) = format == FileFormat.CSV || format == FileFormat.DELIMITED
@@ -33,27 +37,20 @@ class CsvFileParser : FileParser {
         val delimiter = spec.delimiter ?: ","
         val reader = BufferedReader(InputStreamReader(input, spec.encoding))
         var sequence = 0L
-        var headerIndexMap: Map<String, Int> = emptyMap()
 
         reader.use {
-            // Skip leading lines
             repeat(spec.skipLinesCount) { reader.readLine() }
 
-            // Parse header if present
-            if (spec.hasHeader) {
-                val headerLine = reader.readLine()
-                if (headerLine != null) {
-                    headerIndexMap = parseHeader(headerLine, delimiter)
-                    log.debug { "Parsed CSV header: $headerIndexMap" }
-                }
-            }
+            val headerIndexMap = if (spec.hasHeader) {
+                reader.readLine()
+                    ?.let { parseHeader(it, delimiter) }
+                    .also { log.debug { "Parsed CSV header: $it" } }
+                    ?: emptyMap()
+            } else emptyMap()
 
             var line = reader.readLine()
             while (line != null) {
-                if (line.isNotBlank()) {
-                    val record = parseLine(line, spec, sequence++, delimiter, headerIndexMap)
-                    emit(record)
-                }
+                if (line.isNotBlank()) emit(parseLine(line, spec, sequence++, delimiter, headerIndexMap))
                 line = reader.readLine()
             }
         }
@@ -61,11 +58,10 @@ class CsvFileParser : FileParser {
         log.info { "CSV parsing complete. Total records: $sequence" }
     }
 
-    private fun parseHeader(headerLine: String, delimiter: String): Map<String, Int> {
-        return headerLine.split(delimiter)
+    private fun parseHeader(headerLine: String, delimiter: String): Map<String, Int> =
+        headerLine.split(delimiter)
             .mapIndexed { index, name -> name.trim().lowercase() to index }
             .toMap()
-    }
 
     private fun parseLine(
         line: String,
@@ -81,13 +77,12 @@ class CsvFileParser : FileParser {
         spec.fields.forEach { fieldSpec ->
             val index = resolveColumnIndex(fieldSpec, headerIndexMap)
             if (index == null) {
-                if (fieldSpec.required) {
+                if (fieldSpec.required)
                     errors.add(ParseError(
                         field = fieldSpec.name,
                         message = "Column '${fieldSpec.columnName ?: fieldSpec.name}' not found in header",
                         severity = Severity.ERROR
                     ))
-                }
                 return@forEach
             }
 
@@ -97,29 +92,18 @@ class CsvFileParser : FileParser {
             error?.let { errors.add(it) }
         }
 
-        return ParsedRecord(
-            sequenceNumber = sequenceNumber,
-            fields = fields,
-            rawContent = line,
-            errors = errors
-        )
+        return ParsedRecord(sequenceNumber = sequenceNumber, fields = fields, rawContent = line, errors = errors)
     }
 
-    private fun resolveColumnIndex(fieldSpec: FieldSpec, headerIndexMap: Map<String, Int>): Int? {
-        return fieldSpec.columnIndex
-            ?: fieldSpec.columnName?.let { headerIndexMap[it.lowercase()] }
-    }
+    private fun resolveColumnIndex(fieldSpec: FieldSpec, headerIndexMap: Map<String, Int>): Int? =
+        fieldSpec.columnIndex ?: fieldSpec.columnName?.let { headerIndexMap[it.lowercase()] }
 
-    /**
-     * Splits a CSV line while respecting quoted fields that may contain the delimiter.
-     * e.g: 'field1,"field, with comma",field3' → ["field1", "field, with comma", "field3"]
-     */
     private fun splitRespectingQuotes(line: String, delimiter: String): List<String> {
         val result = mutableListOf<String>()
         val current = StringBuilder()
         var inQuotes = false
-
         var i = 0
+
         while (i < line.length) {
             when {
                 line[i] == '"' -> inQuotes = !inQuotes
@@ -138,7 +122,7 @@ class CsvFileParser : FileParser {
 
     private fun coerceValue(raw: String?, fieldSpec: FieldSpec): Pair<Any?, ParseError?> {
         if (raw.isNullOrBlank()) {
-            if (fieldSpec.required && !fieldSpec.nullable) {
+            if (fieldSpec.required && !fieldSpec.nullable)
                 return Pair(
                     fieldSpec.defaultValue,
                     ParseError(
@@ -148,28 +132,24 @@ class CsvFileParser : FileParser {
                         rawValue = raw
                     )
                 )
-            }
             return Pair(fieldSpec.defaultValue, null)
         }
 
-        return try {
+        return runCatching {
             when (fieldSpec.type) {
                 FieldType.STRING, FieldType.ALPHANUMERIC -> Pair(raw, null)
                 FieldType.INTEGER -> Pair(raw.trim().toInt(), null)
                 FieldType.LONG -> Pair(raw.trim().toLong(), null)
                 FieldType.DECIMAL, FieldType.AMOUNT -> Pair(raw.trim().toBigDecimal(), null)
-                FieldType.BOOLEAN -> Pair(raw.trim().lowercase() in listOf("true", "1", "yes", "y"), null)
-                FieldType.DATE -> Pair(raw.trim(), null)   // Validator handles format checking
-                FieldType.DATETIME -> Pair(raw.trim(), null)
-                FieldType.ROUTING_NUMBER, FieldType.ACCOUNT_NUMBER, FieldType.ABA -> Pair(raw.trim(), null)
-                FieldType.ENUM -> Pair(raw.trim(), null)
+                FieldType.BOOLEAN -> Pair(raw.trim().lowercase() in BOOLEAN_TRUE_VALUES, null)
+                else -> Pair(raw.trim(), null)
             }
-        } catch (e: NumberFormatException) {
+        }.getOrElse {
             Pair(
                 raw,
                 ParseError(
                     field = fieldSpec.name,
-                    message = "Cannot convert field '${fieldSpec.name}' value '${if (fieldSpec.sensitive) "***" else raw}' to ${fieldSpec.type}",
+                    message = "Cannot convert '${fieldSpec.name}' value '${if (fieldSpec.sensitive) "***" else raw}' to ${fieldSpec.type}",
                     severity = Severity.ERROR,
                     rawValue = if (fieldSpec.sensitive) null else raw
                 )

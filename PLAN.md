@@ -87,6 +87,35 @@ platform-api
 
 ---
 
+### Phase 0.5 — Observability Foundation
+**Goal:** Full three-pillar observability (logs, metrics, traces) before Phase 1 domain work begins, so all domain events are instrumented from the start.
+
+**Code changes (minimal — 10 files total):**
+1. `platform-api/build.gradle.kts` — add 4 dependencies: `micrometer-registry-prometheus`, `micrometer-tracing-bridge-otel`, `opentelemetry-exporter-otlp`, `logstash-logback-encoder:7.4`
+2. `platform-api/src/main/resources/application.yml` — add OTel OTLP endpoint + tracing sampling config
+3. `platform-api/src/main/resources/logback-spring.xml` — new: structured JSON logging with `traceId`, `spanId`, `correlationId` MDC fields
+4. `ObservabilityConfig.kt` — Micrometer common tags (service name, env)
+5. `CorrelationIdFilter.kt` — `OncePerRequestFilter` that injects/propagates `X-Correlation-ID` and sets MDC
+6. `TransformMetrics.kt` — custom counters/timers: `transform.records.processed`, `transform.file.duration`, `window.events.collected`, `action.execution.duration`
+
+**Docker services to add to `.docker/docker-compose.yml`:**
+- `otel-collector` — central hub; receives OTLP, routes to all backends
+- `elasticsearch:8` — log storage (single-node, security off for dev, 512MB heap)
+- `kibana:8` — log dashboards `:5601`
+- `prometheus` — metrics storage, scrapes app + OTel Collector
+- `grafana` — metrics dashboards `:3000`, auto-provisioned datasources
+- `jaeger` (all-in-one) — distributed tracing UI `:16686`
+
+**New config files in `.docker/`:**
+- `otel-collector-config.yaml` — OTLP receivers → batch processor → Jaeger + Prometheus + ES exporters
+- `prometheus.yml` — scrape app `:8080/actuator/prometheus` + OTel Collector `:8889`
+- `grafana/provisioning/datasources.yml` — auto-wire Prometheus + Jaeger
+- `grafana/provisioning/dashboards/transform-platform.json` — pre-built JVM + HTTP + business metrics dashboard
+
+**Deliverable:** `docker compose up` starts the full observability stack. App emits JSON logs, traces appear in Jaeger, metrics appear in Grafana. Total local RAM: ~3 GB.
+
+---
+
 ### Phase 1 — Core Domain: Profile, Window, Action
 **Goal:** Implement the aggregate root that drives batch workflows. This is the platform's unique value proposition.
 

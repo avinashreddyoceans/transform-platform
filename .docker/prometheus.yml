@@ -1,0 +1,32 @@
+# Prometheus scrape configuration for Transform Platform
+#
+# Two scrape targets:
+#   1. transform-platform app  → /actuator/prometheus  (Micrometer metrics)
+#   2. otel-collector          → :8889                 (OTel Collector self-metrics)
+
+global:
+  scrape_interval:     15s   # How often to scrape targets
+  evaluation_interval: 15s   # How often to evaluate alerting rules
+  external_labels:
+    monitor: transform-platform-local
+
+scrape_configs:
+
+  # ── Transform Platform Spring Boot app ───────────────────────────────────────
+  - job_name: transform-platform
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8080']  # app running on host
+        labels:
+          service: transform-platform
+          env: local
+    # If running the app inside Docker, replace host.docker.internal with the
+    # container name: ['platform-api:8080']
+
+  # ── OpenTelemetry Collector self-metrics ─────────────────────────────────────
+  - job_name: otel-collector
+    static_configs:
+      - targets: ['otel-collector:8889']
+        labels:
+          service: otel-collector
+          env: local

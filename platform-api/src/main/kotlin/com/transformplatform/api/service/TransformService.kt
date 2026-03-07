@@ -1,16 +1,16 @@
 package com.transformplatform.api.service
 
-import com.transformplatform.api.dto.*
+import com.transformplatform.api.dto.ErrorDetail
+import com.transformplatform.api.dto.TransformRequest
+import com.transformplatform.api.dto.TransformResponse
 import com.transformplatform.core.pipeline.DestinationType
 import com.transformplatform.core.pipeline.PipelineDestination
 import com.transformplatform.core.pipeline.PipelineRequest
 import com.transformplatform.core.pipeline.TransformationPipeline
-import com.transformplatform.core.spec.model.ProcessingStatus
-import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.web.multipart.MultipartFile
-import java.util.*
+import java.util.UUID
 
 private val log = KotlinLogging.logger {}
 
@@ -23,7 +23,7 @@ class TransformService(
     // In-memory status store — replace with Redis/DB in production
     private val statusStore = mutableMapOf<String, TransformResponse>()
 
-    fun fileToEvents(
+    suspend fun fileToEvents(
         file: MultipartFile,
         specId: String,
         kafkaTopic: String,
@@ -32,36 +32,34 @@ class TransformService(
         val spec = specService.loadSpec(specId)
         val correlationId = UUID.randomUUID().toString()
 
-        return runBlocking {
-            val result = pipeline.execute(
-                PipelineRequest(
-                    spec = spec,
-                    inputStream = file.inputStream,
-                    fileName = file.originalFilename ?: "unknown",
-                    destination = PipelineDestination(
-                        type = DestinationType.KAFKA_TOPIC,
-                        kafkaTopic = kafkaTopic
-                    ),
-                    skipInvalidRecords = skipInvalidRecords,
-                    correlationId = correlationId
-                )
+        val result = pipeline.execute(
+            PipelineRequest(
+                spec = spec,
+                inputStream = file.inputStream,
+                fileName = file.originalFilename ?: "unknown",
+                destination = PipelineDestination(
+                    type = DestinationType.KAFKA_TOPIC,
+                    kafkaTopic = kafkaTopic
+                ),
+                skipInvalidRecords = skipInvalidRecords,
+                correlationId = correlationId
             )
+        )
 
-            TransformResponse(
-                correlationId = correlationId,
-                status = result.status.name,
-                specId = specId,
-                fileName = file.originalFilename,
-                totalRecords = result.totalRecords,
-                successfulRecords = result.successfulRecords,
-                failedRecords = result.failedRecords,
-                correctedRecords = result.correctedRecords,
-                durationMs = result.durationMs,
-                errors = result.errors.map {
-                    ErrorDetail(it.sequenceNumber, it.field, it.message, it.severity.name)
-                }
-            ).also { statusStore[correlationId] = it }
-        }
+        return TransformResponse(
+            correlationId = correlationId,
+            status = result.status.name,
+            specId = specId,
+            fileName = file.originalFilename,
+            totalRecords = result.totalRecords,
+            successfulRecords = result.successfulRecords,
+            failedRecords = result.failedRecords,
+            correctedRecords = result.correctedRecords,
+            durationMs = result.durationMs,
+            errors = result.errors.map {
+                ErrorDetail(it.sequenceNumber, it.field, it.message, it.severity)
+            }
+        ).also { statusStore[correlationId] = it }
     }
 
     fun scheduleTransform(request: TransformRequest): TransformResponse {

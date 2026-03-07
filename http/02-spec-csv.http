@@ -1,0 +1,311 @@
+# ─── File Spec — CSV ──────────────────────────────────────────────────────────
+# CRUD operations for CSV file format specifications.
+# Example domain: bank transaction export (pipe-delimited, with header row).
+#
+# Workflow:
+#   1. POST  /api/v1/specs        → create, copy id into csvSpecId in env
+#   2. GET   /api/v1/specs/{id}   → verify
+#   3. PUT   /api/v1/specs/{id}   → update version or add fields
+#   4. POST  /api/v1/specs/{id}/validate → sanity-check before first run
+#   5. DELETE /api/v1/specs/{id}  → clean up
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+### Create CSV spec — bank transaction pipe-delimited with header
+# @name createCsvSpec
+POST {{baseUrl}}/api/v1/specs
+Content-Type: application/json
+
+{
+  "name": "bank-transaction-csv-v1",
+  "description": "Daily bank transaction export — pipe-delimited with header row",
+  "version": "1.0",
+  "format": "CSV",
+  "encoding": "UTF-8",
+  "hasHeader": true,
+  "delimiter": "|",
+  "skipLinesCount": 0,
+  "fields": [
+    {
+      "name": "transactionId",
+      "displayName": "Transaction ID",
+      "type": "STRING",
+      "columnName": "TRANSACTION_ID",
+      "required": true,
+      "maxLength": 36,
+      "description": "UUID assigned by the bank"
+    },
+    {
+      "name": "accountNumber",
+      "displayName": "Account Number",
+      "type": "ACCOUNT_NUMBER",
+      "columnName": "ACCOUNT_NO",
+      "required": true,
+      "sensitive": true,
+      "description": "Masked in logs — PII"
+    },
+    {
+      "name": "routingNumber",
+      "displayName": "Routing Number",
+      "type": "ROUTING_NUMBER",
+      "columnName": "ROUTING_NO",
+      "required": true,
+      "sensitive": true,
+      "exactLength": 9,
+      "description": "ABA routing number"
+    },
+    {
+      "name": "amount",
+      "displayName": "Amount",
+      "type": "AMOUNT",
+      "columnName": "AMOUNT",
+      "required": true,
+      "scale": 2,
+      "description": "Transaction amount in USD"
+    },
+    {
+      "name": "transactionDate",
+      "displayName": "Transaction Date",
+      "type": "DATE",
+      "columnName": "TXN_DATE",
+      "required": true,
+      "format": "yyyy-MM-dd",
+      "description": "Date the transaction posted"
+    },
+    {
+      "name": "transactionType",
+      "displayName": "Transaction Type",
+      "type": "ENUM",
+      "columnName": "TXN_TYPE",
+      "required": true,
+      "allowedValues": ["CREDIT", "DEBIT", "REVERSAL", "FEE"],
+      "description": "Type of transaction"
+    },
+    {
+      "name": "description",
+      "displayName": "Description",
+      "type": "STRING",
+      "columnName": "DESCRIPTION",
+      "required": false,
+      "nullable": true,
+      "maxLength": 255
+    },
+    {
+      "name": "status",
+      "displayName": "Status",
+      "type": "ENUM",
+      "columnName": "STATUS",
+      "required": true,
+      "allowedValues": ["POSTED", "PENDING", "REJECTED"],
+      "defaultValue": "POSTED"
+    }
+  ],
+  "validationRules": [
+    {
+      "ruleId": "amount-positive",
+      "field": "amount",
+      "ruleType": "MIN_VALUE",
+      "value": "0.01",
+      "message": "Transaction amount must be positive",
+      "severity": "ERROR"
+    },
+    {
+      "ruleId": "routing-length",
+      "field": "routingNumber",
+      "ruleType": "EXACT_LENGTH",
+      "value": "9",
+      "message": "Routing number must be exactly 9 digits",
+      "severity": "ERROR"
+    },
+    {
+      "ruleId": "account-not-empty",
+      "field": "accountNumber",
+      "ruleType": "NOT_EMPTY",
+      "message": "Account number is required",
+      "severity": "FATAL"
+    }
+  ],
+  "correctionRules": [
+    {
+      "ruleId": "trim-description",
+      "field": "description",
+      "correctionType": "TRIM",
+      "applyOrder": 1
+    },
+    {
+      "ruleId": "uppercase-type",
+      "field": "transactionType",
+      "correctionType": "UPPERCASE",
+      "applyOrder": 2
+    },
+    {
+      "ruleId": "strip-amount-symbols",
+      "field": "amount",
+      "correctionType": "NUMBER_FORMAT_COERCE",
+      "applyOrder": 3
+    },
+    {
+      "ruleId": "coerce-date",
+      "field": "transactionDate",
+      "correctionType": "DATE_FORMAT_COERCE",
+      "applyOrder": 4
+    }
+  ],
+  "metadata": {
+    "source": "core-banking-system",
+    "team": "payments",
+    "sla": "process-within-1h"
+  }
+}
+
+> {%
+  client.test("Status is 201 Created", function() {
+    client.assert(response.status === 201, "Expected 201, got " + response.status);
+  });
+  client.test("Response has id", function() {
+    client.assert(response.body.id !== undefined, "Missing id in response");
+  });
+  client.global.set("csvSpecId", response.body.id);
+  client.log("CSV spec created: " + response.body.id);
+%}
+
+
+### List all specs (no filter)
+GET {{baseUrl}}/api/v1/specs
+Accept: application/json
+
+
+### List specs filtered by format
+GET {{baseUrl}}/api/v1/specs?format=CSV&page=0&size=20
+Accept: application/json
+
+
+### Get CSV spec by ID
+# @name getCsvSpec
+GET {{baseUrl}}/api/v1/specs/{{csvSpecId}}
+Accept: application/json
+
+> {%
+  client.test("Status is 200", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+  });
+  client.test("Format is CSV", function() {
+    client.assert(response.body.format === "CSV", "Expected CSV format");
+  });
+%}
+
+
+### Update CSV spec — bump version, add a new field
+PUT {{baseUrl}}/api/v1/specs/{{csvSpecId}}
+Content-Type: application/json
+
+{
+  "name": "bank-transaction-csv-v1",
+  "description": "Daily bank transaction export — pipe-delimited with header row",
+  "version": "1.1",
+  "format": "CSV",
+  "encoding": "UTF-8",
+  "hasHeader": true,
+  "delimiter": "|",
+  "skipLinesCount": 0,
+  "fields": [
+    {
+      "name": "transactionId",
+      "type": "STRING",
+      "columnName": "TRANSACTION_ID",
+      "required": true,
+      "maxLength": 36
+    },
+    {
+      "name": "accountNumber",
+      "type": "ACCOUNT_NUMBER",
+      "columnName": "ACCOUNT_NO",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "name": "amount",
+      "type": "AMOUNT",
+      "columnName": "AMOUNT",
+      "required": true,
+      "scale": 2
+    },
+    {
+      "name": "transactionDate",
+      "type": "DATE",
+      "columnName": "TXN_DATE",
+      "required": true,
+      "format": "yyyy-MM-dd"
+    },
+    {
+      "name": "transactionType",
+      "type": "ENUM",
+      "columnName": "TXN_TYPE",
+      "required": true,
+      "allowedValues": ["CREDIT", "DEBIT", "REVERSAL", "FEE"]
+    },
+    {
+      "name": "referenceId",
+      "type": "STRING",
+      "columnName": "REF_ID",
+      "required": false,
+      "nullable": true,
+      "maxLength": 50,
+      "description": "Added in v1.1 — optional external reference"
+    }
+  ],
+  "validationRules": [],
+  "correctionRules": [],
+  "metadata": {
+    "source": "core-banking-system",
+    "team": "payments"
+  }
+}
+
+> {%
+  client.test("Status is 200", function() {
+    client.assert(response.status === 200, "Expected 200, got " + response.status);
+  });
+  client.test("Version bumped to 1.1", function() {
+    client.assert(response.body.version === "1.1", "Expected version 1.1");
+  });
+%}
+
+
+### Validate CSV spec — checks completeness and consistency
+POST {{baseUrl}}/api/v1/specs/{{csvSpecId}}/validate
+Accept: application/json
+
+
+### Delete CSV spec
+DELETE {{baseUrl}}/api/v1/specs/{{csvSpecId}}
+
+
+### ── Error cases ──────────────────────────────────────────────────────────────
+
+### Create spec — missing required name (expect 400)
+POST {{baseUrl}}/api/v1/specs
+Content-Type: application/json
+
+{
+  "description": "Missing name field",
+  "format": "CSV",
+  "fields": []
+}
+
+> {%
+  client.test("Status is 400 Bad Request", function() {
+    client.assert(response.status === 400, "Expected 400, got " + response.status);
+  });
+%}
+
+
+### Get non-existent spec (expect 404)
+GET {{baseUrl}}/api/v1/specs/00000000-0000-0000-0000-000000000000
+Accept: application/json
+
+> {%
+  client.test("Status is 404 Not Found", function() {
+    client.assert(response.status === 404, "Expected 404, got " + response.status);
+  });
+%}
