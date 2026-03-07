@@ -6,7 +6,7 @@
 #   App            http://localhost:8080
 #   Swagger UI     http://localhost:8080/swagger-ui
 #   Prometheus     http://localhost:9090
-#   Grafana        http://localhost:3000   (admin / admin)
+#   Grafana        http://localhost:3001   (admin / admin)
 #   Jaeger         http://localhost:16686
 #   Elasticsearch  http://localhost:9200
 #   Kibana         http://localhost:5601
@@ -85,24 +85,24 @@ Accept: text/html
 ### ── Grafana ─────────────────────────────────────────────────────────────────
 
 ### Grafana health check
-GET http://localhost:3000/api/health
+GET http://localhost:3001/api/health
 Accept: application/json
 
 
 ### Grafana dashboards list (requires basic auth admin:admin)
-GET http://localhost:3000/api/search?type=dash-db
+GET http://localhost:3001/api/search?type=dash-db
 Authorization: Basic YWRtaW46YWRtaW4=
 Accept: application/json
 
 
 ### Grafana datasources
-GET http://localhost:3000/api/datasources
+GET http://localhost:3001/api/datasources
 Authorization: Basic YWRtaW46YWRtaW4=
 Accept: application/json
 
 
 ### Grafana UI (open in browser — admin/admin on first login)
-# http://localhost:3000
+# http://localhost:3001
 
 
 ### ── Jaeger ──────────────────────────────────────────────────────────────────

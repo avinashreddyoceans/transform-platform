@@ -12,7 +12,7 @@ version: '3.9'
 #   OTel Collector → 4317 (gRPC), 4318 (HTTP), 8889 (metrics)
 #   Jaeger         → 16686 (UI)
 #   Prometheus     → 9090
-#   Grafana        → 3000  (admin / admin)
+#   Grafana        → 3001  (admin / admin)  ← 3000 reserved for Docusaurus dev server
 #   Elasticsearch  → 9200
 #   Kibana         → 5601
 
@@ -90,6 +90,10 @@ services:
     command: ["--config=/etc/otel/config.yaml"]
     volumes:
       - ./otel-collector-config.yaml:/etc/otel/config.yaml:ro
+      # Bind-mount the app log directory so the filelog receiver can tail it.
+      # The app (running on the host) writes to platform-api/logs/; this path
+      # is relative to .docker/docker-compose.yml → ../platform-api/logs
+      - ../platform-api/logs:/var/log/app:ro
     ports:
       - "4317:4317"   # OTLP gRPC
       - "4318:4318"   # OTLP HTTP
@@ -146,7 +150,7 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      - "3000:3000"
+      - "3001:3000"   # 3000 is reserved for the Docusaurus dev server (website/)
     depends_on:
       - prometheus
       - jaeger
@@ -188,6 +192,31 @@ services:
       elasticsearch:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:5601/api/status | grep -q '\"level\":\"available\"'"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  # One-shot container: waits for Kibana then creates the data view for logs.
+  # Runs once on stack startup — safe to re-run (creation is idempotent).
+  kibana-setup:
+    image: curlimages/curl:8.6.0
+    container_name: transform-kibana-setup
+    depends_on:
+      kibana:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: >
+      sh -c '
+        echo "Creating Kibana data view: transform-platform-logs*";
+        curl -sf -X POST http://kibana:5601/api/data_views/data_view \
+          -H "kbn-xsrf: true" \
+          -H "Content-Type: application/json" \
+          -d "{\"data_view\":{\"title\":\"transform-platform-logs*\",\"name\":\"Transform Platform Logs\",\"timeFieldName\":\"@timestamp\"}}" \
+        && echo "Data view created successfully." \
+        || echo "Data view may already exist — skipping.";
+      '
 
 volumes:
   postgres_data:

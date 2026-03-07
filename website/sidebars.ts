@@ -40,6 +40,11 @@ const sidebars: SidebarsConfig = {
       label: '🔄 Events → File Pipeline',
     },
     {
+      type: 'doc',
+      id: 'observability',
+      label: '🔭 Observability',
+    },
+    {
       type: 'category',
       label: '⚙️ Core Domain',
       collapsed: false,

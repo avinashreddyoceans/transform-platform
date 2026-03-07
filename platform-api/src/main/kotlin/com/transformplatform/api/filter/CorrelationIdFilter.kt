@@ -57,9 +57,14 @@ class CorrelationIdFilter : OncePerRequestFilter() {
         MDC.put(MDC_CORRELATION_KEY, correlationId)
         response.setHeader(CORRELATION_HEADER, correlationId)
 
+        log.debug { "--> ${request.method} ${request.requestURI}" }
+
         // .also runs regardless of success/failure — guarantees MDC cleanup on pooled threads
         runCatching { filterChain.doFilter(request, response) }
-            .also { MDC.remove(MDC_CORRELATION_KEY) }
+            .also {
+                log.debug { "<-- ${request.method} ${request.requestURI} ${response.status}" }
+                MDC.remove(MDC_CORRELATION_KEY)
+            }
             .getOrThrow()
     }
 }

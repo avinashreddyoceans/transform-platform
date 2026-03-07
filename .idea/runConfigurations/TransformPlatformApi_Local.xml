@@ -16,6 +16,7 @@
       <env name="TEMP_DIR" value="/tmp/transform-platform" />
       <env name="ENCRYPTION_ENABLED" value="false" />
       <env name="OTEL_COLLECTOR_HOST" value="localhost" />
+      <env name="OTEL_ENABLED" value="true" />
       <env name="SPRING_PROFILES_ACTIVE" value="local,dev-text" />
     </envs>
     <method v="2">

@@ -17,6 +17,46 @@ receivers:
         cors:
           allowed_origins: ["*"]
 
+  # Tail the app's JSON log file written by Logback/LogstashEncoder.
+  # The app runs on the host and writes to platform-api/logs/; that directory
+  # is bind-mounted into this container at /var/log/app (see docker-compose.yml).
+  filelog:
+    include: [/var/log/app/transform-platform.log]
+    start_at: beginning
+    include_file_path: false
+    operators:
+      # Parse each line as JSON
+      - type: json_parser
+        parse_from: body
+        timestamp:
+          parse_from: attributes.timestamp
+          layout_type: gotime
+          layout: "2006-01-02T15:04:05.000000-07:00"
+        severity:
+          parse_from: attributes.level
+          preset: default   # maps INFO/WARN/ERROR/DEBUG case-insensitively
+      # Promote the message text to the log body
+      - type: move
+        from: attributes.message
+        to: body
+      # Carry useful MDC fields as standard OTel attributes
+      - type: move
+        from: attributes.traceId
+        to: attributes["traceId"]
+        if: 'attributes["traceId"] != nil'
+      - type: move
+        from: attributes.correlationId
+        to: attributes["correlationId"]
+        if: 'attributes["correlationId"] != nil'
+      - type: move
+        from: attributes.logger_name
+        to: attributes["logger.name"]
+        if: 'attributes["logger_name"] != nil'
+      - type: move
+        from: attributes.thread_name
+        to: attributes["thread.name"]
+        if: 'attributes["thread_name"] != nil'
+
 processors:
   # Batch telemetry for efficiency — reduces network round-trips
   batch:
@@ -54,14 +94,13 @@ exporters:
 
   # ── Logs → Elasticsearch ─────────────────────────────────────────────────────
   elasticsearch:
-    endpoint: http://elasticsearch:9200
+    endpoints: ["http://elasticsearch:9200"]
     logs_index: transform-platform-logs
     # Retry on transient ES failures
     retry:
       enabled: true
       initial_interval: 1s
       max_interval: 30s
-      max_elapsed_time: 300s
 
   # ── Debug: print to collector stdout (useful when debugging locally) ──────────
   debug:
@@ -90,6 +129,6 @@ service:
       exporters:  [prometheus]
 
     logs:
-      receivers:  [otlp]
-      processors: [resource, attributes/sanitize, batch]
+      receivers:  [filelog]           # tails platform-api/logs/transform-platform.log
+      processors: [resource, batch]   # no sanitize needed — filelog doesn't capture auth headers
       exporters:  [elasticsearch]
