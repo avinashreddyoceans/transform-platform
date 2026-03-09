@@ -1,0 +1,1 @@
+{"schema":{"type":"string","description":"Type of auto-correction to apply","enum":["TRIM","TRIM_LEADING","TRIM_TRAILING","UPPERCASE","LOWERCASE","TITLE_CASE","DATE_FORMAT_COERCE","NUMBER_FORMAT_COERCE","DEFAULT_IF_NULL","DEFAULT_IF_EMPTY","PAD_LEFT","PAD_RIGHT","REMOVE_SPECIAL_CHARS","REGEX_REPLACE"],"example":"TRIM","title":"CorrectionType"},"schemaType":"response"}

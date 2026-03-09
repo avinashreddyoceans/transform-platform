@@ -1,0 +1,150 @@
+---
+id: grafana
+title: Grafana
+sidebar_label: Grafana
+sidebar_position: 3
+---
+
+# Grafana
+
+Grafana is the primary metrics dashboard for the Transform Platform. The pre-provisioned "Transform Platform" dashboard gives a real-time visual overview of every layer of the system — from JVM internals to business pipeline throughput.
+
+**URL:** [http://localhost:3001](http://localhost:3001)
+**Login:** `admin` / `admin`
+
+---
+
+## Navigating to the Dashboard
+
+1. Open [http://localhost:3001](http://localhost:3001) and log in.
+2. Click the **hamburger menu** (top-left) → **Dashboards**.
+3. Select **Transform Platform** from the list.
+
+Or use the direct link: [localhost:3001/d/transform-platform-main](http://localhost:3001/d/transform-platform-main)
+
+---
+
+## Dashboard Sections
+
+The dashboard is divided into five collapsible rows. Click the row header to expand or collapse it.
+
+### ⚙️ JVM Health
+
+The top row — six stat cards give an instant health snapshot:
+
+| Panel | What to watch |
+|-------|---------------|
+| **Heap Used %** | Yellow > 70%, Red > 85%. Sustained red = OOM risk |
+| **Non-Heap Used** | Metaspace creep = classloader leak |
+| **Process CPU %** | Red > 85%. Sustained high = runaway loop or GC thrash |
+| **Open File Descriptors** | Red > 900. If hitting the OS limit → `Too many open files` errors |
+| **Process Uptime** | Unexpected reset = crash-loop |
+| **Live Threads** | Yellow > 200, Red > 400. Growing thread count = thread leak |
+
+Below the stat cards, three time-series charts:
+
+- **JVM Memory** — Heap used / committed / max + non-heap. A used line approaching the max line means GC is struggling to free memory.
+- **JVM Thread States** — Stacked view of runnable / waiting / timed-waiting / blocked. A spike in **blocked** threads means lock contention. Growing **waiting** threads often means slow downstream I/O.
+- **GC Pause Duration** — Rate of wall time spent in GC. If this approaches 1.0 s/s the JVM is spending almost all its time collecting garbage instead of executing your code.
+
+---
+
+### 🌐 HTTP Traffic
+
+Three charts covering all API endpoints:
+
+- **HTTP Requests / sec** — Per endpoint and status. A sudden drop to zero means the app stopped receiving traffic (or stopped running).
+- **HTTP Latency p50 / p95 / p99** — p50 is typical, p99 shows your worst 1%. If p99 is high but p50 is fine, you have occasional slow outliers (GC pause, slow DB query, etc.).
+- **HTTP Error Rate % (4xx + 5xx)** — 4xx are client errors (bad requests, not-found). 5xx are your bugs. A rising 5xx line means something broke.
+
+---
+
+### 🗄️ Database / HikariCP
+
+Six stat cards + two latency charts:
+
+| Stat card | Healthy value | Concern |
+|-----------|--------------|---------|
+| **Active Connections** | Low, variable | Consistently at max = pool exhausted |
+| **Idle Connections** | Should be > 0 | Zero idle + pending > 0 = under-provisioned |
+| **Pending Threads** | **0** | Any non-zero sustained value = serious problem |
+| **Pool Utilization %** | < 70% | > 90% for > 5m = alert fires |
+| **Connection Timeouts** | **0 total** | Any value = requests failed to get a DB connection |
+| **Max Pool Size** | Config value | Set via `spring.datasource.hikari.maximum-pool-size` |
+
+- **Connection Acquire Time p50/p95/p99** — How long threads wait to borrow a connection. p99 > 100ms means the pool is under pressure.
+- **Connection Usage Duration p50/p95/p99** — How long connections are held by application code. High p99 here often means a slow or unindexed SQL query.
+
+---
+
+### 🔄 Pipeline Metrics
+
+Business-level throughput. Empty until `Counter` and `Timer` beans are registered in the app code.
+
+- **Records Processed / sec** — Per spec ID and status.
+- **Records Failed / sec** — Per spec ID and severity. Any sustained value here warrants investigation.
+- **File Transform Duration p95 / p99** — End-to-end time to transform a file. Spikes here correlate with slow DB queries or large payloads.
+
+---
+
+### 🪟 Window & Action Metrics
+
+Coming Soon — these panels will populate once the Window and Action pipeline is instrumented.
+
+---
+
+## Common Workflows
+
+### Investigating a latency spike
+
+1. Look at **HTTP Latency p95/p99** — which URI is slow?
+2. Check **GC Pause Duration** — is a full GC happening at the same time?
+3. Check **Connection Acquire Time p99** — is the DB pool backed up?
+4. If neither, jump to Jaeger and find a trace from that time window.
+
+### Investigating an OOM / memory alert
+
+1. Watch **JVM Memory** — is heap used flat (leak) or spiky (normal GC cycle)?
+2. Look at **GC Pause Duration** — is GC running frequently but failing to reclaim?
+3. Check **JVM Thread States** — too many threads each holding references?
+4. Check **Non-Heap Used** — growing non-heap = Metaspace leak (class loading).
+
+### Investigating a DB slowdown
+
+1. **Pending Threads** stat > 0 → pool exhausted.
+2. **Connection Acquire Time p99** > 200ms → threads waiting for a connection.
+3. **Connection Usage Duration p99** high → a query is running slowly.
+4. Jump to Kibana and search for slow query log lines.
+
+---
+
+## Changing the Time Range
+
+- Use the time picker at the top right (default: last 1 hour).
+- Common presets: `Last 15 minutes`, `Last 1 hour`, `Last 6 hours`, `Last 24 hours`.
+- Click and drag on any graph to zoom into a specific time window.
+- Press **Ctrl+Z** (or Cmd+Z on Mac) to undo a zoom.
+- The refresh interval is set to **30 seconds** by default. Change it in the time picker.
+
+---
+
+## Adding a Custom Panel
+
+1. Click **Edit** (pencil icon, top right) to enter edit mode.
+2. Click **Add panel** → **Add new visualization**.
+3. Pick **Prometheus** as the data source.
+4. Paste any PromQL query from the [Prometheus guide](./prometheus.mdx).
+5. Choose a visualization type (Time series, Stat, Gauge, Bar chart, Table, etc.).
+6. Click **Apply** then **Save dashboard**.
+
+---
+
+## Study Material
+
+- [Grafana Getting Started](https://grafana.com/docs/grafana/latest/getting-started/build-first-dashboard/)
+- [Grafana Panel Types](https://grafana.com/docs/grafana/latest/panels-visualizations/)
+- [Grafana Alerting](https://grafana.com/docs/grafana/latest/alerting/)
+- [Dashboard Best Practices](https://grafana.com/docs/grafana/latest/dashboards/build-dashboards/best-practices/)
+- [Grafana + Prometheus Tutorial (official)](https://grafana.com/docs/grafana/latest/datasources/prometheus/)
+- [USE Method for metrics](https://www.brendangregg.com/usemethod.html) — a framework for thinking about utilisation, saturation, and errors
+- [RED Method for services](https://grafana.com/blog/2018/08/02/the-red-method-how-to-instrument-your-services/) — Rate, Errors, Duration

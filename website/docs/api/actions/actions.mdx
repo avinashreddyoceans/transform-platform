@@ -1,0 +1,57 @@
+---
+title: Actions API
+description: Automation action configuration endpoints
+---
+
+# Actions
+
+> 🚧 **Coming Soon** — This API is under active design. Endpoints return `501 Not Implemented` until released.
+
+Actions are event-driven automations that fire when pipeline events occur. Instead of polling for results, you configure an action once and the platform calls it automatically — on completion, failure, threshold breach, or on schedule.
+
+## Action Types
+
+| Type | Description |
+|------|-------------|
+| `WEBHOOK` | HTTP POST to an external URL |
+| `KAFKA_PUBLISH` | Publish a summary event to a Kafka topic |
+| `EMAIL` | Send a notification email |
+| `SLACK` | Post a message to a Slack channel |
+| `ARCHIVE_FILE` | Move/copy the source file to an archive location |
+| `CUSTOM_SCRIPT` | Execute a registered script or Lambda function |
+
+## Trigger Events
+
+| Trigger | Fires when... |
+|---------|---------------|
+| `ON_COMPLETION` | Job finishes successfully |
+| `ON_FAILURE` | Job fails entirely |
+| `ON_PARTIAL_FAILURE` | Some records fail but job continues |
+| `ON_THRESHOLD_BREACH` | A metric crosses a defined threshold |
+| `ON_SCHEDULE` | A cron expression fires |
+| `MANUAL` | Triggered via `POST /api/v1/actions/{id}/trigger` |
+
+## Operations
+
+import DocCard from "@theme/DocCard";
+import { useCurrentSidebarCategory } from "@docusaurus/theme-common";
+
+export function CategoryList() {
+  const items = useCurrentSidebarCategory().items;
+  return (
+    <div className="row">
+      {items.map((item, index) => (
+        <DocCard key={index} item={item} />
+      ))}
+    </div>
+  );
+}
+
+<CategoryList />
+
+## Schema References
+
+- [`CreateActionRequest`](/api/core/schemas/createactionrequest) — Create/update payload
+- [`ActionResponse`](/api/core/schemas/actionresponse) — Action response structure
+- [`ActionType`](/api/core/schemas/actiontype) — Supported action types
+- [`ActionTrigger`](/api/core/schemas/actiontrigger) — Pipeline trigger events

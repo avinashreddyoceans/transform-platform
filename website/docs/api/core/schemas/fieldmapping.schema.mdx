@@ -1,0 +1,32 @@
+---
+id: fieldmapping
+title: "FieldMapping"
+description: "Maps a source field to a target field in the output spec"
+sidebar_label: "FieldMapping"
+hide_title: true
+hide_table_of_contents: true
+schema: true
+sample: {"sourceField":"account_number","targetField":"accountNo","transformation":"#value.substring(0, 9)"}
+custom_edit_url: null
+---
+
+import Schema from "@theme/Schema";
+import Heading from "@theme/Heading";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"FieldMapping"}
+>
+</Heading>
+
+
+
+Maps a source field to a target field in the output spec
+
+<Schema
+  {...require("./fieldmapping.Schema.json")}
+>
+  
+</Schema>
+            

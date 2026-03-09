@@ -1,0 +1,32 @@
+---
+id: errorresponse
+title: "ErrorResponse"
+description: "Standard error envelope returned by all error responses"
+sidebar_label: "ErrorResponse"
+hide_title: true
+hide_table_of_contents: true
+schema: true
+sample: {"status":404,"error":"Not Found","message":"No spec found with id 'acme-payments-v2'","path":"/api/v1/specs/acme-payments-v2"}
+custom_edit_url: null
+---
+
+import Schema from "@theme/Schema";
+import Heading from "@theme/Heading";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"ErrorResponse"}
+>
+</Heading>
+
+
+
+Standard error envelope returned by all error responses
+
+<Schema
+  {...require("./errorresponse.Schema.json")}
+>
+  
+</Schema>
+            

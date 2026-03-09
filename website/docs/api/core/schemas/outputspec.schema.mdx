@@ -1,0 +1,32 @@
+---
+id: outputspec
+title: "OutputSpec"
+description: "Describes the output format when transforming from one file format to another"
+sidebar_label: "OutputSpec"
+hide_title: true
+hide_table_of_contents: true
+schema: true
+sample: {"format":"DELIMITED","delimiter":",","encoding":"UTF-8","hasHeader":false,"fieldMappings":[{"sourceField":"account_number","targetField":"accountNo","transformation":"#value.substring(0, 9)"}]}
+custom_edit_url: null
+---
+
+import Schema from "@theme/Schema";
+import Heading from "@theme/Heading";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"OutputSpec"}
+>
+</Heading>
+
+
+
+Describes the output format when transforming from one file format to another
+
+<Schema
+  {...require("./outputspec.Schema.json")}
+>
+  
+</Schema>
+            

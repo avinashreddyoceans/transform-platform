@@ -1,0 +1,32 @@
+---
+id: transformresponse
+title: "TransformResponse"
+description: "Result or current status of a transformation job"
+sidebar_label: "TransformResponse"
+hide_title: true
+hide_table_of_contents: true
+schema: true
+sample: {"correlationId":"550e8400-e29b-41d4-a716-446655440000","status":"COMPLETED","specId":"acme-payments-v2","fileName":"payments_20240315.txt","totalRecords":5000,"successfulRecords":4987,"failedRecords":8,"correctedRecords":5,"durationMs":1243,"message":"Transformation complete with 8 failed records","errors":[{"sequenceNumber":42,"field":"amount","message":"Amount must be non-negative","severity":"ERROR"}],"processedAt":"2024-03-15T10:30:00Z"}
+custom_edit_url: null
+---
+
+import Schema from "@theme/Schema";
+import Heading from "@theme/Heading";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"TransformResponse"}
+>
+</Heading>
+
+
+
+Result or current status of a transformation job
+
+<Schema
+  {...require("./transformresponse.Schema.json")}
+>
+  
+</Schema>
+            

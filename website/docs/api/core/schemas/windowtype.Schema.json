@@ -1,0 +1,1 @@
+{"schema":{"type":"string","description":"Processing window strategy","enum":["TUMBLING","SLIDING","SESSION","TIME_BASED","COUNT_BASED","EVENT_TRIGGERED"],"example":"TUMBLING","title":"WindowType"},"schemaType":"response"}

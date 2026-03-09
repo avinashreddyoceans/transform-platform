@@ -1,0 +1,32 @@
+---
+id: validationrule
+title: "ValidationRule"
+description: "A validation rule applied to a field after parsing"
+sidebar_label: "ValidationRule"
+hide_title: true
+hide_table_of_contents: true
+schema: true
+sample: {"ruleId":"vr-001","field":"amount","ruleType":"MIN_VALUE","value":"0","secondaryValue":"999999","message":"Amount must be non-negative","severity":"ERROR"}
+custom_edit_url: null
+---
+
+import Schema from "@theme/Schema";
+import Heading from "@theme/Heading";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"ValidationRule"}
+>
+</Heading>
+
+
+
+A validation rule applied to a field after parsing
+
+<Schema
+  {...require("./validationrule.Schema.json")}
+>
+  
+</Schema>
+            

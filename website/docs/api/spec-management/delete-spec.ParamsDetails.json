@@ -1,0 +1,1 @@
+{"parameters":[{"name":"id","in":"path","required":true,"description":"Unique spec identifier (UUID or slug)","schema":{"type":"string"},"example":"01HX9QRPBZW4EZG3BTYV7K0M5N"}]}

@@ -1,0 +1,1 @@
+{"schema":{"type":"string","description":"Where the source file comes from","enum":["FILE_UPLOAD","SFTP","S3","LOCAL_PATH"],"example":"LOCAL_PATH","title":"SourceType"},"schemaType":"response"}

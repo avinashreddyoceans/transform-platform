@@ -1,1 +1,0 @@
-{"parameters":[{"name":"type","in":"query","description":"Filter by integration type","schema":{"type":"string","enum":["SFTP","KAFKA","REST","S3"],"title":"IntegrationType"}},{"name":"clientId","in":"query","description":"Filter by client","schema":{"type":"string"}}]}

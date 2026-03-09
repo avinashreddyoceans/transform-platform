@@ -1,0 +1,42 @@
+openapi: 3.0.3
+info:
+  title: Transform Platform API — Health & Observability
+  description: |
+    Liveness, readiness, and observability endpoints exposed by Spring Boot Actuator.
+    These do not require authentication and are suitable for load-balancer health checks
+    and monitoring integrations (Prometheus, Grafana).
+  version: 1.0.0
+  contact:
+    name: Transform Platform
+    url: https://avinashreddyoceans.github.io/transform-platform/
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://api.transform-platform.example.com
+    description: Production
+
+tags:
+  - name: Health
+    description: Liveness, readiness, metrics and observability endpoints
+
+paths:
+  /actuator/health:
+    $ref: '../openapi.yaml#/paths/~1actuator~1health'
+  /actuator/health/liveness:
+    $ref: '../openapi.yaml#/paths/~1actuator~1health~1liveness'
+  /actuator/health/readiness:
+    $ref: '../openapi.yaml#/paths/~1actuator~1health~1readiness'
+  /actuator/metrics:
+    $ref: '../openapi.yaml#/paths/~1actuator~1metrics'
+  /actuator/metrics/{metricName}:
+    $ref: '../openapi.yaml#/paths/~1actuator~1metrics~1{metricName}'
+  /actuator/prometheus:
+    $ref: '../openapi.yaml#/paths/~1actuator~1prometheus'
+
+components:
+  schemas:
+    HealthResponse:
+      $ref: '../openapi.yaml#/components/schemas/HealthResponse'
+    SimpleHealthResponse:
+      $ref: '../openapi.yaml#/components/schemas/SimpleHealthResponse'

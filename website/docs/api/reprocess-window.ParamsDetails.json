@@ -1,1 +1,0 @@
-{"parameters":[{"name":"instanceId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"conditions","in":"query","description":"Comma-separated list of conditions to re-run (default: all)","schema":{"type":"string","example":"ON_CLOSING"}}]}

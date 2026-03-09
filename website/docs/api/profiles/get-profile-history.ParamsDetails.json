@@ -1,0 +1,1 @@
+{"parameters":[{"name":"id","in":"path","required":true,"description":"Unique profile identifier","schema":{"type":"string"},"example":"01HX9QRPBZW4EZG3BTYV7K0M5P"},{"name":"page","in":"query","required":false,"schema":{"type":"integer","default":0}},{"name":"size","in":"query","required":false,"schema":{"type":"integer","default":20}}]}

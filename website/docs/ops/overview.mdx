@@ -1,0 +1,123 @@
+---
+id: overview
+title: Operations Manual
+sidebar_label: Overview
+sidebar_position: 1
+---
+
+# Operations Manual
+
+This manual is the day-to-day reference for the team operating the Transform Platform. It covers every observability tool in the local stack — what it does, when to reach for it, and exactly what to type when something goes wrong.
+
+---
+
+## The Observability Stack at a Glance
+
+| Tool | URL | Credentials | Purpose |
+|------|-----|-------------|---------|
+| **Prometheus** | [localhost:9090](http://localhost:9090) | None | Metrics storage and alerting |
+| **Grafana** | [localhost:3001](http://localhost:3001) | `admin / admin` | Metrics dashboards |
+| **Kibana** | [localhost:5601](http://localhost:5601) | None | Structured log search |
+| **Jaeger** | [localhost:16686](http://localhost:16686) | None | Distributed tracing |
+| **Kafka UI** | [localhost:8090](http://localhost:8090) | None | Kafka topic browser |
+| **App Metrics** | [localhost:8080/actuator/prometheus](http://localhost:8080/actuator/prometheus) | None | Raw Prometheus scrape endpoint |
+| **App Health** | [localhost:8080/actuator/health](http://localhost:8080/actuator/health) | None | Liveness / readiness probe |
+
+---
+
+## When to Use What
+
+```
+Something is wrong — where do I look?
+│
+├─ App not responding / health check failing
+│   └─ Start with: localhost:8080/actuator/health
+│
+├─ I need to see numbers (latency, error rate, memory)
+│   └─ Grafana dashboard  →  prometheus queries for detail
+│
+├─ I need to read log lines / find an error message
+│   └─ Kibana  →  search by level, traceId, or keyword
+│
+├─ I need to trace one slow or failing request end-to-end
+│   └─ Jaeger  →  find by traceId (copy it from the log)
+│
+├─ Kafka messages not flowing
+│   └─ Kafka UI  →  inspect topic, consumer group lag
+│
+└─ Alert fired in Prometheus
+    └─ Prometheus /alerts  →  Grafana panel for context  →  Kibana for logs
+```
+
+---
+
+## The Three Signals and How They Connect
+
+Every request handled by the platform emits all three signals, all linked by the same `traceId`:
+
+```
+HTTP Request arrives
+       │
+       ▼
+CorrelationIdFilter — writes correlationId to MDC + response header
+       │
+       ▼
+TracingMdcFilter — writes traceId + spanId to MDC (from OTel span)
+       │
+       ├── LOG LINE emitted  →  Kibana  (contains traceId, correlationId, level, message)
+       │
+       ├── SPAN emitted      →  Jaeger  (contains traceId, HTTP method, URI, duration)
+       │
+       └── METRIC incremented→  Prometheus / Grafana  (http_server_requests_seconds)
+```
+
+**Typical debug workflow:**
+
+1. Grafana shows a spike in HTTP 5xx errors → note the time window.
+2. Kibana: filter `level: "ERROR"` in that time window → copy a `traceId`.
+3. Jaeger: paste the `traceId` → see every span that made up that request.
+
+---
+
+## Starting the Stack
+
+```bash
+# From the project root
+docker compose -f .docker/docker-compose.yml up -d
+
+# Check all containers are healthy
+docker compose -f .docker/docker-compose.yml ps
+
+# Tail logs from all containers
+docker compose -f .docker/docker-compose.yml logs -f
+
+# Reload Prometheus config without restart (after changing rules)
+curl -X POST http://localhost:9090/-/reload
+```
+
+---
+
+## Log Correlation Fields
+
+Every structured log line written by the app contains these fields:
+
+| Field | Example | Description |
+|-------|---------|-------------|
+| `traceId` | `4bf92f3577b34da6a3ce929d0e0e4736` | OTel trace ID — use in Jaeger |
+| `spanId` | `00f067aa0ba902b7` | OTel span ID |
+| `correlationId` | `1de41fa4-3d2c-48e7-acc4-297f0800bc5b` | Per-request UUID in response header `X-Correlation-ID` |
+| `level` | `ERROR` | Log level: TRACE / DEBUG / INFO / WARN / ERROR |
+| `logger` | `c.t.api.service.TransformService` | Logger class |
+| `message` | `Transform failed for specId=csv-to-json` | Log message |
+| `@timestamp` | `2026-03-09T10:45:32.123Z` | UTC timestamp |
+
+---
+
+## Reference Links
+
+- [Prometheus Docs](https://prometheus.io/docs/introduction/overview/)
+- [PromQL Basics](https://prometheus.io/docs/prometheus/latest/querying/basics/)
+- [Grafana Docs](https://grafana.com/docs/grafana/latest/)
+- [Kibana KQL Reference](https://www.elastic.co/guide/en/kibana/current/kuery-query.html)
+- [Jaeger Tracing Docs](https://www.jaegertracing.io/docs/latest/)
+- [Micrometer Metrics Concepts](https://micrometer.io/docs/concepts)

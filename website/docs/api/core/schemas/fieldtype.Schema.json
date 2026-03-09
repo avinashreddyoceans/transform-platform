@@ -1,0 +1,1 @@
+{"schema":{"type":"string","description":"Data type for a field","enum":["STRING","INTEGER","LONG","DECIMAL","AMOUNT","DATE","DATETIME","BOOLEAN","ALPHANUMERIC","ROUTING_NUMBER","ACCOUNT_NUMBER","ABA","ENUM"],"example":"AMOUNT","title":"FieldType"},"schemaType":"response"}

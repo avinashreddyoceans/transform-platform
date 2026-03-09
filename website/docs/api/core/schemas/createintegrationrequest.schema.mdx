@@ -1,0 +1,32 @@
+---
+id: createintegrationrequest
+title: "CreateIntegrationRequest"
+description: "Payload to register or update an external integration"
+sidebar_label: "CreateIntegrationRequest"
+hide_title: true
+hide_table_of_contents: true
+schema: true
+sample: {"name":"acme-sftp","integrationType":"SFTP","credentialId":"cred-001","config":{"host":"sftp.acme.com","port":22,"remotePath":"/outbound/payments/"}}
+custom_edit_url: null
+---
+
+import Schema from "@theme/Schema";
+import Heading from "@theme/Heading";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"CreateIntegrationRequest"}
+>
+</Heading>
+
+
+
+Payload to register or update an external integration
+
+<Schema
+  {...require("./createintegrationrequest.Schema.json")}
+>
+  
+</Schema>
+            

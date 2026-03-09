@@ -1,5 +1,5 @@
 import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
-import apiSidebar from './docs/api/sidebar';
+import apiSidebar from './docs/api/core/sidebar';
 
 const sidebars: SidebarsConfig = {
   docs: [
@@ -113,8 +113,38 @@ const sidebars: SidebarsConfig = {
     },
   ],
 
-  // ── REST API Reference (generated from openapi.yaml) ──────────────────────
+  // ── REST API Reference (generated from openapi.yaml) ─────────────────────
+  // Re-generate with:  npx docusaurus gen-api-docs all
   apisidebar: apiSidebar,
+
+  // ── Operations Manual ─────────────────────────────────────────────────────
+  ops: [
+    {
+      type: 'doc',
+      id: 'ops/overview',
+      label: '📟 Overview',
+    },
+    {
+      type: 'doc',
+      id: 'ops/prometheus',
+      label: '📈 Prometheus',
+    },
+    {
+      type: 'doc',
+      id: 'ops/grafana',
+      label: '📊 Grafana',
+    },
+    {
+      type: 'doc',
+      id: 'ops/kibana',
+      label: '🔍 Kibana (Logs)',
+    },
+    {
+      type: 'doc',
+      id: 'ops/jaeger',
+      label: '🔭 Jaeger (Tracing)',
+    },
+  ],
 };
 
 export default sidebars;

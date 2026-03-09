@@ -1,0 +1,1 @@
+{"schema":{"type":"string","description":"Type of external system","enum":["SFTP","FTP","FTPS","S3","AZURE_BLOB","GCS","REST_API","DATABASE","LOCAL_FS"],"example":"SFTP","title":"IntegrationType"},"schemaType":"response"}

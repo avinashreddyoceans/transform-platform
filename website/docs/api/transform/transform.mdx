@@ -1,0 +1,80 @@
+---
+title: Transform API
+description: File transformation and event publishing endpoints
+---
+
+# Transform
+
+Transform files into Kafka events and manage transformation jobs.
+
+## Overview
+
+The Transform API enables you to:
+
+- **Parse files** according to a file format specification
+- **Publish records** to Kafka topics in real-time
+- **Schedule** transformations to run at specific times
+- **Track status** of transformation jobs
+
+## Transformation Flow
+
+```
+1. File Upload
+    ↓
+2. Parse according to Spec
+    ↓
+3. Apply validation/correction rules
+    ↓
+4. Publish to Kafka Topic
+    ↓
+5. Return status and metrics
+```
+
+## Operations
+
+import DocCard from "@theme/DocCard";
+import { useCurrentSidebarCategory } from "@docusaurus/theme-common";
+
+export function CategoryList() {
+  const items = useCurrentSidebarCategory().items;
+  return (
+    <div className="row">
+      {items.map((item, index) => (
+        <DocCard key={index} item={item} />
+      ))}
+    </div>
+  );
+}
+
+<CategoryList />
+
+## Example: Transform a CSV File
+
+```bash
+# 1. Create a spec (from Spec Management API)
+# Copy the spec ID from response
+
+# 2. Transform file to Kafka events
+curl -X POST http://localhost:8080/api/v1/transform/file-to-events \
+  -F "specId=<spec-id>" \
+  -F "kafkaTopic=transform.records" \
+  -F "file=@transactions.csv"
+
+# 3. Check transformation status
+curl http://localhost:8080/api/v1/transform/status/{correlationId}
+```
+
+## Prerequisites
+
+- A valid file specification (from Spec Management API)
+- File matching the specification format
+- Kafka topic available to publish to
+
+## Schema References
+
+See the **Schemas** section in the sidebar for detailed definitions. Key schemas for this API:
+
+- [`ErrorResponse`](/api/core/schemas/errorresponse) — Error response structure
+- [`ErrorDetail`](/api/core/schemas/errordetail) — Individual error details
+- [`Severity`](/api/core/schemas/severity) — Validation severity levels (ERROR, WARN, INFO)
+

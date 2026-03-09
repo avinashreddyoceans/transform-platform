@@ -1,1 +1,0 @@
-{"title":"Body","body":{"required":true,"content":{"multipart/form-data":{"schema":{"type":"object","required":["file"],"properties":{"file":{"type":"string","format":"binary","description":"The file to transform"},"correlationId":{"type":"string","description":"Optional correlation ID for tracing"}}}}}}}

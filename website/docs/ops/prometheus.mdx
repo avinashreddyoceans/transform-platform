@@ -1,0 +1,311 @@
+---
+id: prometheus
+title: Prometheus
+sidebar_label: Prometheus
+sidebar_position: 2
+---
+
+# Prometheus
+
+Prometheus scrapes the app's `/actuator/prometheus` endpoint every 15 seconds and stores all metrics as time-series data. It is the source of truth for numbers — latency, error rates, memory, thread counts, and custom business counters.
+
+**URL:** [http://localhost:9090](http://localhost:9090)
+
+---
+
+## Navigating the UI
+
+| Page | Path | What it shows |
+|------|------|---------------|
+| **Graph** | `/graph` | Ad-hoc PromQL query scratchpad |
+| **Alerts** | `/alerts` | All defined alert rules and their current state |
+| **Targets** | `/targets` | Which services are being scraped and their health |
+| **Rules** | `/rules` | All recording + alerting rules loaded from the rules file |
+| **Config** | `/config` | Active prometheus.yml as Prometheus parsed it |
+| **TSDB Status** | `/tsdb-status` | Storage stats, cardinality |
+
+### Quick health check
+
+1. Open [/targets](http://localhost:9090/targets)
+2. Both `transform-platform` and `otel-collector` should show **`UP`** in green.
+3. If `transform-platform` is `DOWN` — the Spring Boot app is not running or the SecurityConfig is missing.
+
+---
+
+## How to Run a Query
+
+1. Go to [/graph](http://localhost:9090/graph)
+2. Click the metrics dropdown (the `{` icon) to browse all available metric names.
+3. Type or paste a PromQL expression and press **Execute**.
+4. Switch to the **Graph** tab to see a time-series chart. Use the time range controls at the top.
+5. Press **Shift+Enter** to execute without clicking.
+
+---
+
+## Pre-Built Recording Rules
+
+These are pre-computed every 15 seconds — use them in queries for instant results:
+
+| Rule name | Description |
+|-----------|-------------|
+| `job:http_requests:rate1m` | Total HTTP req/sec (all endpoints) |
+| `job:http_errors_4xx:rate1m` | 4xx error req/sec |
+| `job:http_errors_5xx:rate1m` | 5xx error req/sec |
+| `job:jvm_heap_used_ratio` | Heap used as fraction 0–1 |
+| `job:jvm_gc_pause_rate:rate1m` | Seconds of GC pause per second |
+| `job:process_fd_ratio` | Open file descriptors / max |
+| `job:hikaricp_pool_utilization_ratio` | Active DB connections / max |
+| `job:transform_records_processed:rate1m` | Records processed per second |
+| `job:transform_records_failed:rate1m` | Records failed per second |
+
+---
+
+## PromQL Query Examples
+
+### JVM Memory
+
+```promql
+# Current heap used as a percentage (0–100)
+100 * sum(jvm_memory_used_bytes{area="heap"}) / sum(jvm_memory_max_bytes{area="heap"})
+
+# Heap used vs committed vs max (bytes) — good for a graph
+sum(jvm_memory_used_bytes{area="heap"})
+sum(jvm_memory_committed_bytes{area="heap"})
+sum(jvm_memory_max_bytes{area="heap"})
+
+# Non-heap memory (Metaspace + Code Cache + Compressed Class Space)
+sum(jvm_memory_used_bytes{area="nonheap"})
+
+# Memory by pool (Eden, Survivor, Old Gen, Metaspace, etc.)
+jvm_memory_used_bytes
+
+# Pre-built: heap ratio
+job:jvm_heap_used_ratio
+```
+
+---
+
+### JVM Threads
+
+```promql
+# Total live threads right now
+jvm_threads_live_threads
+
+# Daemon vs non-daemon
+jvm_threads_daemon_threads
+
+# Peak thread count since JVM start
+jvm_threads_peak_threads
+
+# Breakdown by thread state (runnable / blocked / waiting / timed-waiting)
+jvm_threads_states_threads
+
+# Just blocked threads (non-zero means contention)
+jvm_threads_states_threads{state="blocked"}
+
+# Just waiting threads
+jvm_threads_states_threads{state="waiting"}
+```
+
+---
+
+### Garbage Collection
+
+```promql
+# Rate of GC pause time (seconds of pause per second, 1m window)
+# If this approaches 1.0 the app is spending most of its time in GC
+rate(jvm_gc_pause_seconds_sum[1m])
+
+# GC pause count rate (how many pauses per second)
+rate(jvm_gc_pause_seconds_count[1m])
+
+# GC pause by action and cause (minor GC, major GC, etc.)
+rate(jvm_gc_pause_seconds_sum[1m])
+
+# Memory allocation rate (bytes allocated per second)
+rate(jvm_gc_memory_allocated_bytes_total[1m])
+
+# Memory promoted to Old Gen per second
+rate(jvm_gc_memory_promoted_bytes_total[1m])
+
+# Pre-built: GC pause rate
+job:jvm_gc_pause_rate:rate1m
+```
+
+---
+
+### CPU & Process
+
+```promql
+# Process CPU usage (0–1, multiply by 100 for %)
+process_cpu_usage * 100
+
+# JVM CPU time used (vs system CPU)
+system_cpu_usage * 100
+
+# Process uptime in seconds
+process_uptime_seconds
+
+# Open file descriptors
+process_files_open_files
+
+# Maximum allowed file descriptors (OS limit)
+process_files_max_files
+
+# FD utilisation % — alert if approaching 100
+100 * process_files_open_files / process_files_max_files
+
+# Pre-built: FD ratio
+job:process_fd_ratio
+```
+
+---
+
+### HTTP Traffic
+
+```promql
+# Request rate per second by endpoint and status code (1m window)
+rate(http_server_requests_seconds_count[1m])
+
+# Filter to a specific endpoint
+rate(http_server_requests_seconds_count{uri="/api/v1/transform"}[1m])
+
+# Total across all endpoints
+sum(rate(http_server_requests_seconds_count[1m]))
+
+# 5xx server errors only
+sum(rate(http_server_requests_seconds_count{status=~"5.."}[1m]))
+
+# 4xx client errors only
+sum(rate(http_server_requests_seconds_count{status=~"4.."}[1m]))
+
+# Error rate as a fraction (0–1)
+sum(rate(http_server_requests_seconds_count{status=~"[45].."}[1m]))
+  / sum(rate(http_server_requests_seconds_count[1m]))
+
+# p50 latency per endpoint
+histogram_quantile(0.50, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, uri))
+
+# p95 latency per endpoint
+histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, uri))
+
+# p99 latency — good for spotting outliers
+histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, uri))
+
+# Average latency per endpoint
+rate(http_server_requests_seconds_sum[1m])
+  / rate(http_server_requests_seconds_count[1m])
+
+# Pre-built queries
+job:http_requests:rate1m
+job:http_errors_4xx:rate1m
+job:http_errors_5xx:rate1m
+```
+
+---
+
+### Database — HikariCP
+
+```promql
+# Active (checked-out) connections right now
+hikaricp_connections_active
+
+# Idle connections waiting in pool
+hikaricp_connections_idle
+
+# Threads waiting because pool is exhausted (should be 0)
+hikaricp_connections_pending
+
+# Pool utilisation % — alert if > 80%
+100 * hikaricp_connections_active / hikaricp_connections_max
+
+# Total connection timeouts ever (should stay at 0)
+hikaricp_connections_timeout_total
+
+# Rate of connection timeouts
+rate(hikaricp_connections_timeout_total[5m])
+
+# Connection acquire time p99 (how long callers wait for a connection)
+histogram_quantile(0.99, rate(hikaricp_connections_acquire_seconds_bucket[5m]))
+
+# Connection usage duration p99 (how long code holds a connection)
+histogram_quantile(0.99, rate(hikaricp_connections_usage_seconds_bucket[5m]))
+
+# Pre-built: utilisation ratio
+job:hikaricp_pool_utilization_ratio
+```
+
+---
+
+### Pipeline / Business Metrics
+
+:::info
+These metrics require Micrometer instrumentation in the application code. They will show as empty until the corresponding `Counter` and `Timer` beans are registered.
+:::
+
+```promql
+# Records processed per second (all specs)
+rate(transform_transform_records_processed_total[1m])
+
+# Filter to a specific spec
+rate(transform_transform_records_processed_total{specId="csv-to-json"}[1m])
+
+# Records failed per second
+rate(transform_transform_records_failed_total[1m])
+
+# Failure ratio (failed / processed)
+rate(transform_transform_records_failed_total[1m])
+  / rate(transform_transform_records_processed_total[1m])
+
+# File transform duration p95
+histogram_quantile(0.95, rate(transform_transform_file_duration_seconds_bucket[5m]))
+
+# Window events collected rate
+rate(transform_window_events_collected_total[1m])
+
+# Pre-built
+job:transform_records_processed:rate1m
+job:transform_records_failed:rate1m
+```
+
+---
+
+## Active Alerts Reference
+
+All alert thresholds are defined in `.docker/prometheus-rules.yml`. Current alerts:
+
+| Alert | Threshold | Severity |
+|-------|-----------|----------|
+| `TransformPlatformDown` | `up == 0` for 1m | critical |
+| `HighJvmHeapUsage` | heap > 85% for 5m | warning |
+| `CriticalJvmHeapUsage` | heap > 95% for 2m | critical |
+| `TooManyThreads` | live threads > 400 for 5m | warning |
+| `HighGcPauseRate` | GC pause rate > 10% for 5m | warning |
+| `HighOpenFileDescriptors` | FD utilisation > 80% for 5m | warning |
+| `HighHttpErrorRate` | error rate > 5% for 5m | warning |
+| `CriticalHttpErrorRate` | error rate > 20% for 2m | critical |
+| `HighHttpLatencyP99` | p99 > 2s for 5m | warning |
+| `HikariConnectionPoolExhausted` | pending > 0 for 2m | warning |
+| `HikariHighPoolUtilization` | pool > 90% for 5m | warning |
+| `HikariConnectionTimeouts` | any timeout in 5m | warning |
+| `HighTransformFailureRate` | failure ratio > 10% for 5m | warning |
+| `CriticalTransformFailureRate` | failure ratio > 50% for 2m | critical |
+
+To reload rules after editing the file (no container restart needed):
+```bash
+curl -X POST http://localhost:9090/-/reload
+```
+
+---
+
+## Study Material
+
+- [Prometheus Getting Started](https://prometheus.io/docs/prometheus/latest/getting_started/)
+- [PromQL Basics](https://prometheus.io/docs/prometheus/latest/querying/basics/)
+- [PromQL Functions Reference](https://prometheus.io/docs/prometheus/latest/querying/functions/)
+- [Histogram & Summary](https://prometheus.io/docs/practices/histograms/)
+- [Recording Rules](https://prometheus.io/docs/prometheus/latest/configuration/recording_rules/)
+- [Alerting Rules](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/)
+- [Spring Boot Micrometer Integration](https://micrometer.io/docs/registry/prometheus)
+- [PromQL for Humans (blog)](https://valyala.medium.com/promql-tutorial-for-beginners-9ab455142085)
+- [Awesome Prometheus Alerts (community)](https://awesome-prometheus-alerts.grep.to/)

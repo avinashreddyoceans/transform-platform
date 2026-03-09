@@ -1,0 +1,191 @@
+# Prometheus recording rules and alerting rules for Transform Platform.
+#
+# Recording rules pre-compute expensive/frequently-used expressions so dashboards
+# and alerts load instantly without re-evaluating heavy queries on every request.
+#
+# To hot-reload without restarting the container (--web.enable-lifecycle is set):
+#   curl -X POST http://localhost:9090/-/reload
+
+groups:
+
+  # ── Recording Rules ──────────────────────────────────────────────────────────
+  - name: transform_platform_recording
+    interval: 15s
+    rules:
+
+      # HTTP total request rate (reqs/sec, 1-min window)
+      - record: job:http_requests:rate1m
+        expr: sum(rate(http_server_requests_seconds_count[1m])) by (job)
+
+      # HTTP 4xx client-error rate
+      - record: job:http_errors_4xx:rate1m
+        expr: sum(rate(http_server_requests_seconds_count{status=~"4.."}[1m])) by (job)
+
+      # HTTP 5xx server-error rate
+      - record: job:http_errors_5xx:rate1m
+        expr: sum(rate(http_server_requests_seconds_count{status=~"5.."}[1m])) by (job)
+
+      # JVM heap utilisation ratio (0–1)
+      - record: job:jvm_heap_used_ratio
+        expr: sum(jvm_memory_used_bytes{area="heap"}) / sum(jvm_memory_max_bytes{area="heap"})
+
+      # GC pause rate — seconds of GC wall time per second (rolling 1m)
+      - record: job:jvm_gc_pause_rate:rate1m
+        expr: sum(rate(jvm_gc_pause_seconds_sum[1m])) by (job)
+
+      # Open-file-descriptor utilisation ratio (0–1)
+      - record: job:process_fd_ratio
+        expr: process_files_open_files / clamp_min(process_files_max_files, 1)
+
+      # HikariCP pool utilisation ratio (active / max)
+      - record: job:hikaricp_pool_utilization_ratio
+        expr: hikaricp_connections_active / clamp_min(hikaricp_connections_max, 1)
+
+      # Total records processed per second (all specs)
+      - record: job:transform_records_processed:rate1m
+        expr: sum(rate(transform_transform_records_processed_total[1m])) by (job)
+
+      # Total records failed per second (all specs)
+      - record: job:transform_records_failed:rate1m
+        expr: sum(rate(transform_transform_records_failed_total[1m])) by (job)
+
+
+  # ── Alerting Rules ───────────────────────────────────────────────────────────
+  - name: transform_platform_alerts
+    rules:
+
+      # ── Availability ─────────────────────────────────────────────────────────
+
+      - alert: TransformPlatformDown
+        expr: up{job="transform-platform"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Transform Platform is DOWN"
+          description: "Prometheus cannot scrape {{ $labels.instance }}. The app may have crashed or /actuator/prometheus is unreachable."
+
+      # ── JVM ──────────────────────────────────────────────────────────────────
+
+      - alert: HighJvmHeapUsage
+        expr: job:jvm_heap_used_ratio > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "JVM heap usage above 85%"
+          description: "Heap utilisation is {{ humanizePercentage $value }} for 5 minutes. Risk of GC thrashing or OutOfMemoryError."
+
+      - alert: CriticalJvmHeapUsage
+        expr: job:jvm_heap_used_ratio > 0.95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "JVM heap usage above 95% — OOM risk"
+          description: "Heap utilisation is {{ humanizePercentage $value }}. Immediate investigation required."
+
+      - alert: TooManyThreads
+        expr: jvm_threads_live_threads > 400
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "JVM thread count exceeds 400"
+          description: "{{ $value }} live threads detected for 5 minutes. Possible thread leak or unbounded executor."
+
+      - alert: HighGcPauseRate
+        expr: job:jvm_gc_pause_rate:rate1m > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "GC pausing more than 10% of wall time"
+          description: "GC pause rate is {{ humanize $value }}s/s. Application may be suffering stop-the-world pauses."
+
+      - alert: HighOpenFileDescriptors
+        expr: job:process_fd_ratio > 0.80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Open file descriptors above 80% of limit"
+          description: "File descriptor utilisation is {{ humanizePercentage $value }}. Risk of 'Too many open files' errors."
+
+      # ── HTTP ─────────────────────────────────────────────────────────────────
+
+      - alert: HighHttpErrorRate
+        expr: (job:http_errors_4xx:rate1m + job:http_errors_5xx:rate1m) / clamp_min(job:http_requests:rate1m, 1) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HTTP error rate above 5%"
+          description: "{{ humanizePercentage $value }} of requests are returning 4xx or 5xx over the last 5 minutes."
+
+      - alert: CriticalHttpErrorRate
+        expr: (job:http_errors_4xx:rate1m + job:http_errors_5xx:rate1m) / clamp_min(job:http_requests:rate1m, 1) > 0.20
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HTTP error rate above 20%"
+          description: "{{ humanizePercentage $value }} of requests are failing. Immediate investigation required."
+
+      - alert: HighHttpLatencyP99
+        expr: histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket[5m])) by (le)) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HTTP p99 latency above 2 seconds"
+          description: "99th percentile response time is {{ humanizeDuration $value }}."
+
+      # ── Database ─────────────────────────────────────────────────────────────
+
+      - alert: HikariConnectionPoolExhausted
+        expr: hikaricp_connections_pending > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HikariCP has threads waiting for a connection"
+          description: "{{ $value }} thread(s) waiting for a database connection for over 2 minutes. Pool may be undersized or connections are leaking."
+
+      - alert: HikariHighPoolUtilization
+        expr: job:hikaricp_pool_utilization_ratio > 0.90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HikariCP pool utilization above 90%"
+          description: "Pool utilisation is {{ humanizePercentage $value }}. Consider increasing spring.datasource.hikari.maximum-pool-size."
+
+      - alert: HikariConnectionTimeouts
+        expr: increase(hikaricp_connections_timeout_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HikariCP connection acquisition timed out"
+          description: "{{ $value }} connection timeout(s) occurred in the last 5 minutes."
+
+      # ── Pipeline ─────────────────────────────────────────────────────────────
+
+      - alert: HighTransformFailureRate
+        expr: job:transform_records_failed:rate1m / clamp_min(job:transform_records_processed:rate1m, 0.001) > 0.10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Transform failure rate above 10%"
+          description: "{{ humanizePercentage $value }} of processed records are failing validation/transformation."
+
+      - alert: CriticalTransformFailureRate
+        expr: job:transform_records_failed:rate1m / clamp_min(job:transform_records_processed:rate1m, 0.001) > 0.50
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Transform failure rate above 50%"
+          description: "{{ humanizePercentage $value }} of records are failing. Pipeline may be receiving malformed input."

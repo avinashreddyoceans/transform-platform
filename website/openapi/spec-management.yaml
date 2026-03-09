@@ -1,0 +1,64 @@
+openapi: 3.0.3
+info:
+  title: Transform Platform API — Spec Management
+  description: |
+    Create and manage **File Specs** — the configuration objects that describe how a file
+    is structured, parsed, validated, and corrected. A spec defines field positions,
+    types, validation rules, correction rules, and output mapping. Every transformation
+    job references a spec by ID.
+  version: 1.0.0
+  contact:
+    name: Transform Platform
+    url: https://avinashreddyoceans.github.io/transform-platform/
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://api.transform-platform.example.com
+    description: Production
+
+tags:
+  - name: Spec Management
+    description: Create and manage file format specifications
+
+paths:
+  /api/v1/specs:
+    $ref: '../openapi.yaml#/paths/~1api~1v1~1specs'
+  /api/v1/specs/{id}:
+    $ref: '../openapi.yaml#/paths/~1api~1v1~1specs~1{id}'
+  /api/v1/specs/{id}/validate:
+    $ref: '../openapi.yaml#/paths/~1api~1v1~1specs~1{id}~1validate'
+
+components:
+  parameters:
+    specId:
+      $ref: '../openapi.yaml#/components/parameters/specId'
+  schemas:
+    FileFormat:
+      $ref: '../openapi.yaml#/components/schemas/FileFormat'
+    FieldType:
+      $ref: '../openapi.yaml#/components/schemas/FieldType'
+    Severity:
+      $ref: '../openapi.yaml#/components/schemas/Severity'
+    RuleType:
+      $ref: '../openapi.yaml#/components/schemas/RuleType'
+    CorrectionType:
+      $ref: '../openapi.yaml#/components/schemas/CorrectionType'
+    FieldSpec:
+      $ref: '../openapi.yaml#/components/schemas/FieldSpec'
+    ValidationRule:
+      $ref: '../openapi.yaml#/components/schemas/ValidationRule'
+    CorrectionRule:
+      $ref: '../openapi.yaml#/components/schemas/CorrectionRule'
+    FieldMapping:
+      $ref: '../openapi.yaml#/components/schemas/FieldMapping'
+    OutputSpec:
+      $ref: '../openapi.yaml#/components/schemas/OutputSpec'
+    CreateSpecRequest:
+      $ref: '../openapi.yaml#/components/schemas/CreateSpecRequest'
+    SpecResponse:
+      $ref: '../openapi.yaml#/components/schemas/SpecResponse'
+    ValidationReport:
+      $ref: '../openapi.yaml#/components/schemas/ValidationReport'
+    ErrorResponse:
+      $ref: '../openapi.yaml#/components/schemas/ErrorResponse'

@@ -1,0 +1,1 @@
+{"responses":{"200":{"description":"List of metric names","content":{"application/json":{"schema":{"type":"object","properties":{"names":{"type":"array","items":{"type":"string"}}}},"example":{"names":["jvm.memory.used","jvm.gc.pause","http.server.requests","transform.records.processed","transform.records.failed"]}}}}}}

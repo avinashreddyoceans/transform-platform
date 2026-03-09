@@ -1,0 +1,1 @@
+{"responses":{"200":{"description":"Prometheus metrics in text format","content":{"text/plain":{"schema":{"type":"string"}}}}}}

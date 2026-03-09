@@ -1,0 +1,1 @@
+{"parameters":[{"name":"id","in":"path","required":true,"description":"Unique profile identifier","schema":{"type":"string"},"example":"01HX9QRPBZW4EZG3BTYV7K0M5P"}]}

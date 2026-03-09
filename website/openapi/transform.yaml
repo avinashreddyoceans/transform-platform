@@ -1,0 +1,45 @@
+openapi: 3.0.3
+info:
+  title: Transform Platform API — Transform
+  description: |
+    Trigger and monitor **transformation jobs**. A job parses a file using a spec,
+    applies validation and correction rules, and publishes each record as a Kafka event.
+    Jobs can be triggered synchronously (file upload), scheduled for future/recurring
+    execution, or polled for status via a correlation ID.
+  version: 1.0.0
+  contact:
+    name: Transform Platform
+    url: https://avinashreddyoceans.github.io/transform-platform/
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://api.transform-platform.example.com
+    description: Production
+
+tags:
+  - name: Transform
+    description: File transformation and processing
+
+paths:
+  /api/v1/transform/file-to-events:
+    $ref: '../openapi.yaml#/paths/~1api~1v1~1transform~1file-to-events'
+  /api/v1/transform/schedule:
+    $ref: '../openapi.yaml#/paths/~1api~1v1~1transform~1schedule'
+  /api/v1/transform/status/{correlationId}:
+    $ref: '../openapi.yaml#/paths/~1api~1v1~1transform~1status~1{correlationId}'
+
+components:
+  schemas:
+    SourceType:
+      $ref: '../openapi.yaml#/components/schemas/SourceType'
+    Severity:
+      $ref: '../openapi.yaml#/components/schemas/Severity'
+    TransformRequest:
+      $ref: '../openapi.yaml#/components/schemas/TransformRequest'
+    TransformResponse:
+      $ref: '../openapi.yaml#/components/schemas/TransformResponse'
+    ErrorDetail:
+      $ref: '../openapi.yaml#/components/schemas/ErrorDetail'
+    ErrorResponse:
+      $ref: '../openapi.yaml#/components/schemas/ErrorResponse'

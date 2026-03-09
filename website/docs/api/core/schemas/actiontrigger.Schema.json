@@ -1,0 +1,1 @@
+{"schema":{"type":"string","description":"Pipeline event that fires the action","enum":["ON_COMPLETION","ON_FAILURE","ON_PARTIAL_FAILURE","ON_THRESHOLD_BREACH","ON_SCHEDULE","MANUAL"],"example":"ON_COMPLETION","title":"ActionTrigger"},"schemaType":"response"}

@@ -1,1 +1,0 @@
-{"schema":{"type":"string","enum":["DRAFT","ENABLED","DISABLED","ARCHIVED"],"description":"- `DRAFT` — not yet deployed; safe to edit\n- `ENABLED` — window scheduling active\n- `DISABLED` — scheduling paused; manual triggers still work\n- `ARCHIVED` — retired; read-only\n","title":"ProfileStatus"},"schemaType":"response"}

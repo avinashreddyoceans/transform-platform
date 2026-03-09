@@ -1,0 +1,32 @@
+---
+id: fieldspec
+title: "FieldSpec"
+description: "Describes a single field within the file"
+sidebar_label: "FieldSpec"
+hide_title: true
+hide_table_of_contents: true
+schema: true
+sample: {"name":"account_number","displayName":"Account Number","type":"AMOUNT","startPosition":1,"length":17,"columnIndex":0,"columnName":"ACCT_NO","path":"$.payment.accountNumber","xmlAttribute":"string","required":true,"nullable":false,"defaultValue":"string","format":"yyyyMMdd","scale":2,"validationRegex":"^[0-9]{9}$","minLength":0,"maxLength":17,"allowedValues":["string"],"sensitive":false,"description":"string"}
+custom_edit_url: null
+---
+
+import Schema from "@theme/Schema";
+import Heading from "@theme/Heading";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"FieldSpec"}
+>
+</Heading>
+
+
+
+Describes a single field within the file
+
+<Schema
+  {...require("./fieldspec.Schema.json")}
+>
+  
+</Schema>
+            

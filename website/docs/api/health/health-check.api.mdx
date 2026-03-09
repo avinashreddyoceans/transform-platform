@@ -1,0 +1,64 @@
+---
+id: health-check
+title: "Application health"
+description: "Returns liveness and readiness status including the status of downstream"
+sidebar_label: "Application health"
+hide_title: true
+hide_table_of_contents: true
+api: eJztVktvGzcQ/iuD6SGJsXrYVhJ7b05qt25S27Ds9pA1Ymo50jLmkizJVSwIAnrqL8gvzC8phrvySwHaSw9Fq4uWj5n5vnlyiVHMAuYf8EcSOlZ4laF15EVU1hxLzLFK+28rKm8wQ0mh9MrxKeZ4TrHxJoBWczIUAggjwZOQKq1CFLEJoEypG6nMDGJF6007BWk/mxA9ibowkhwZSaZUFOC5FFFMRKAM3onpjchAqnADwYmSXvRh3KgoJppgaj1oK2RvIrQwJfnCtGihZLihXxjM0FNw1gQKmC9xZzjkv8c0DpzTqkyUQQVodSwww9KaSCayhLi/M/gUWGyJoayoFvwVF44wRzv5RGXccNPYeWb/xtoIB2VsRLS+swJrdPC8dRMFKG3trCETQVIUSocXmKHzHJaoWhqtEx9YDpFNYIZkmprDeXmGGX5/+usJZnh6efHx9Ojj+PD8l+O3h5jh5cm7Ez66ypBuRe00q7g8wxVT7oyHb/ESUiomJfTZIzxP7/0zaFfs2OSRv48t+oZW/MswqpiItpl+3jmeSd854R5rC+mxN+Tk6Q1GpMLNmDNzU/ohWBuFxny0v7//anf79Wh/eyfDqSfCfHe0vbM7erW3NxwOM4yVp1BZLTHfHo72Xr5+NVytOgIvh7t/mbxNVwIL+Pr7F7CGwHqoraf7tAogPEHn7f9T/L+Q4u1pTbGy3NNnlBiIWGGOA9HFa9DGCzMM5OfkeSwssfGap0CMLh8MtC2FrmyI+d5wb7iRBe/5GCTNSVtXc1qtsocaQj4YCKf60QsTptbXPadF5I9+F6R+aesNtWfeyqZMi9VVhspMbfJOR/ZirQ3OOm1wcHa8oeXQRPLOq0C9mReSMgiOyp70PLxgqjTB1z++AM05Le8QtoVFZqYM9QtTmG9Yo1tnAwUQcH44vmDjaTTVwogZV8XW1hFrHzsqw9YWPG/1gqSpMimeAWIlYmESFnDCB2VmGcyFVjIByNJkLa33lPzwIq2jV7MZ+dYEE+hF20v4t7aeMCiMU440z+VkC1wz0SpwcZbWywDRtrM2cfzuO3gjAsHl+fvCHGidKJGRzqp1+3CepuqWJHxWsYJrDutgvn29Fj/03no4SuYL067uBjE0gUDwS8BI4SX8ND49ATIpaygvzPX1NfefwiwLA1B0xVVgDqPhKGv3iFXyVoEnNsKRbYwssDusKQQxo/VxCjRM+UoLV0l4Jsqaek4sOE1Db77z7E6a66IV7VgNWD4MnkoUWJhVQpveGVwxbaZt94f9YddbRZl6qxH1t1MVs6f1MVdGhMqTlAtbkjChP1OxaiZ9ZQebhTPgjqZVSVzn94Z+Pr5ALnlnQ6yFeXDycF7cFfyjSlneD4V/xwuva5ORbuPAaaEM+yR5ddk1uQ+4bnKYdS9angzcyfhwuWQsl16vVrz9W0N+gfmHqwznwitGwqtVEpXkU1+8oQV7syzJcTOdC90wiI0hyh3rrvH+cMhh+RM/dPeu
+sidebar_class_name: "get api-method"
+info_path: api/core/transform-platform-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Application health"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"get"}
+  path={"/actuator/health"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Returns liveness and readiness status including the status of downstream
+dependencies (database, Kafka, disk space). Suitable for load-balancer
+health checks.
+
+
+<ParamsDetails
+  parameters={undefined}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./health-check.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./health-check.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

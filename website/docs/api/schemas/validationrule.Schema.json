@@ -1,1 +1,0 @@
-{"schema":{"type":"object","required":["type"],"properties":{"type":{"type":"string","enum":["NOT_EMPTY","CROSS_FIELD_REQUIRED","CONDITIONAL_REQUIRED","UNIQUE_KEY","REFERENTIAL_INTEGRITY"]},"fields":{"type":"array","items":{"type":"string"}},"params":{"type":"object","additionalProperties":true}},"title":"ValidationRule"},"schemaType":"response"}

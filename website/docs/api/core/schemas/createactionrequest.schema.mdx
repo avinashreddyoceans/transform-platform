@@ -1,0 +1,32 @@
+---
+id: createactionrequest
+title: "CreateActionRequest"
+description: "Payload to create or update an automation action"
+sidebar_label: "CreateActionRequest"
+hide_title: true
+hide_table_of_contents: true
+schema: true
+sample: {"name":"notify-on-complete","profileId":"acme-corp","actionType":"WEBHOOK","trigger":"ON_COMPLETION","enabled":true,"config":{"url":"https://hooks.acme.com/pipeline-complete","method":"POST"}}
+custom_edit_url: null
+---
+
+import Schema from "@theme/Schema";
+import Heading from "@theme/Heading";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"CreateActionRequest"}
+>
+</Heading>
+
+
+
+Payload to create or update an automation action
+
+<Schema
+  {...require("./createactionrequest.Schema.json")}
+>
+  
+</Schema>
+            

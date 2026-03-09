@@ -1,0 +1,106 @@
+---
+title: Observability API
+description: Metrics, monitoring, and performance tracking endpoints
+---
+
+# Observability
+
+Monitor application performance through metrics and observability data.
+
+## Overview
+
+The Observability API provides access to:
+
+- **Application Metrics** — Performance, throughput, latency
+- **JVM Metrics** — Memory, GC, threads
+- **Business Metrics** — Transformation counts, error rates
+- **Prometheus Format** — Compatible with popular monitoring stacks
+
+## Integration with Monitoring Stack
+
+This API integrates with:
+
+- **Prometheus** (http://localhost:9090) — Metrics collection and alerting
+- **Grafana** (http://localhost:3001) — Metrics visualization
+- **OpenTelemetry** — Distributed tracing and telemetry
+
+## Operations
+
+import DocCard from "@theme/DocCard";
+import { useCurrentSidebarCategory } from "@docusaurus/theme-common";
+
+export function CategoryList() {
+  const items = useCurrentSidebarCategory().items;
+  return (
+    <div className="row">
+      {items.map((item, index) => (
+        <DocCard key={index} item={item} />
+      ))}
+    </div>
+  );
+}
+
+<CategoryList />
+
+## Common Metrics
+
+```
+transform_files_processed_total        — Total files transformed
+transform_records_published_total      — Total records published to Kafka
+transform_errors_total                 — Total transformation errors
+transform_duration_seconds             — Duration of transformations
+jvm_memory_used_bytes                  — JVM heap memory in use
+jvm_threads_current                    — Active JVM threads
+http_requests_total                    — Total HTTP requests
+http_request_duration_seconds          — HTTP request latency
+```
+
+## Example: Query Metrics
+
+```bash
+# List all available metrics
+curl http://localhost:8080/actuator/metrics
+
+# Get a specific metric (JVM memory)
+curl http://localhost:8080/actuator/metrics/jvm.memory.used
+
+# Prometheus-compatible format (scrape by Prometheus)
+curl http://localhost:8080/actuator/prometheus
+```
+
+## Prometheus Configuration
+
+Add to `prometheus.yml`:
+
+```yaml
+scrape_configs:
+  - job_name: "transform-platform"
+    static_configs:
+      - targets: ["localhost:8080"]
+    metrics_path: "/actuator/prometheus"
+    scrape_interval: 15s
+```
+
+## Grafana Dashboards
+
+Pre-built dashboards available:
+- JVM Performance
+- Application Throughput
+- Error Rates
+- Kafka Publishing Metrics
+
+## Custom Metrics
+
+Application publishes custom metrics:
+- `transform.files.processed` — Gauge
+- `transform.records.published` — Counter
+- `transform.errors` — Counter
+- `transform.duration` — Timer
+
+Access via Prometheus queries:
+```prometheus
+rate(transform_files_processed_total[5m])      # 5-min throughput
+transform_errors_total                          # Total errors
+transform_duration_seconds_bucket{le="+Inf"}  # Duration percentiles
+```
+

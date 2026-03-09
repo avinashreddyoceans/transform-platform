@@ -1,0 +1,1 @@
+{"schema":{"type":"string","description":"Type of validation rule","enum":["NOT_NULL","NOT_EMPTY","MIN_LENGTH","MAX_LENGTH","EXACT_LENGTH","REGEX","MIN_VALUE","MAX_VALUE","BETWEEN","ALLOWED_VALUES","CUSTOM_EXPRESSION","CROSS_FIELD"],"example":"MIN_VALUE","title":"RuleType"},"schemaType":"response"}

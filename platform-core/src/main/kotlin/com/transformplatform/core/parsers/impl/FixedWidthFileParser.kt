@@ -83,7 +83,7 @@ class FixedWidthFileParser : FileParser {
 
     private fun coerceValue(raw: String, fieldSpec: FieldSpec): Pair<Any?, ParseError?> {
         if (raw.isBlank()) {
-            if (fieldSpec.required && !fieldSpec.nullable)
+            if ( fieldSpec.required && !fieldSpec.nullable)
                 return Pair(
                     fieldSpec.defaultValue,
                     ParseError(field = fieldSpec.name, message = "Required field '${fieldSpec.name}' is blank", severity = Severity.ERROR)

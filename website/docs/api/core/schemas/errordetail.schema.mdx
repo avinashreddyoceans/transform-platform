@@ -1,0 +1,32 @@
+---
+id: errordetail
+title: "ErrorDetail"
+description: "Per-record validation error detail"
+sidebar_label: "ErrorDetail"
+hide_title: true
+hide_table_of_contents: true
+schema: true
+sample: {"sequenceNumber":42,"field":"amount","message":"Amount must be non-negative","severity":"ERROR"}
+custom_edit_url: null
+---
+
+import Schema from "@theme/Schema";
+import Heading from "@theme/Heading";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"ErrorDetail"}
+>
+</Heading>
+
+
+
+Per-record validation error detail
+
+<Schema
+  {...require("./errordetail.Schema.json")}
+>
+  
+</Schema>
+            

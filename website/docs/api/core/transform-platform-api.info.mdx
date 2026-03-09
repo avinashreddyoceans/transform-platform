@@ -1,0 +1,74 @@
+---
+id: transform-platform-api
+title: "Transform Platform API"
+description: "Enterprise-grade, spec-driven file ↔ event transformation engine."
+sidebar_label: "Transform Platform API"
+hide_title: true
+custom_edit_url: null
+---
+
+import ApiLogo from "@theme/ApiLogo";
+import Heading from "@theme/Heading";
+import SchemaTabs from "@theme/SchemaTabs";
+import TabItem from "@theme/TabItem";
+import Export from "@theme/ApiExplorer/Export";
+
+<span
+  className={"theme-doc-version-badge badge badge--secondary"}
+  children={"Version: 1.0.0"}
+>
+</span>
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Transform Platform API"}
+>
+</Heading>
+
+
+
+Enterprise-grade, spec-driven file ↔ event transformation engine.
+
+Transform Platform exposes a REST API for managing **File Specs** (format definitions that
+drive parsing, validation, and correction) and triggering **file-to-event** transformation
+pipelines that publish records to Kafka.
+
+## Base URL
+All API endpoints are prefixed with `/api/v1`.
+
+## Error Format
+Error responses use a standard JSON envelope:
+```json
+{
+  "status": 404,
+  "error": "Not Found",
+  "message": "No spec found with id 'acme-payments-v2'",
+  "path": "/api/v1/specs/acme-payments-v2"
+}
+```
+
+
+<div
+  style={{"display":"flex","flexDirection":"column","marginBottom":"var(--ifm-paragraph-margin-bottom)"}}
+>
+  <h3
+    style={{"marginBottom":"0.25rem"}}
+  >
+    Contact
+  </h3><span>
+    Transform Platform: 
+  </span><span>
+    URL: [https://avinashreddyoceans.github.io/transform-platform/](https://avinashreddyoceans.github.io/transform-platform/)
+  </span>
+</div><div
+  style={{"marginBottom":"var(--ifm-paragraph-margin-bottom)"}}
+>
+  <h3
+    style={{"marginBottom":"0.25rem"}}
+  >
+    License
+  </h3>
+</div>
+
+      

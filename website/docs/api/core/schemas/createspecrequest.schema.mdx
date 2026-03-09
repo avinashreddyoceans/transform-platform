@@ -1,0 +1,32 @@
+---
+id: createspecrequest
+title: "CreateSpecRequest"
+description: "Payload to create or update a file spec"
+sidebar_label: "CreateSpecRequest"
+hide_title: true
+hide_table_of_contents: true
+schema: true
+sample: {"name":"acme-payments-v2","description":"ACME Corp daily payment file, pipe-delimited","version":"2.0","format":"DELIMITED","encoding":"UTF-8","hasHeader":false,"delimiter":"|","skipLinesCount":2,"fields":[{"name":"account_number","displayName":"Account Number","type":"AMOUNT","startPosition":1,"length":17,"columnIndex":0,"columnName":"ACCT_NO","path":"$.payment.accountNumber","xmlAttribute":"string","required":true,"nullable":false,"defaultValue":"string","format":"yyyyMMdd","scale":2,"validationRegex":"^[0-9]{9}$","minLength":0,"maxLength":17,"allowedValues":["string"],"sensitive":false,"description":"string"}],"validationRules":[{"ruleId":"vr-001","field":"amount","ruleType":"MIN_VALUE","value":"0","secondaryValue":"999999","message":"Amount must be non-negative","severity":"ERROR"}],"correctionRules":[{"ruleId":"cr-001","field":"account_number","correctionType":"TRIM","value":"0","applyOrder":1}],"outputSpec":{"format":"DELIMITED","delimiter":",","encoding":"UTF-8","hasHeader":false,"fieldMappings":[{"sourceField":"account_number","targetField":"accountNo","transformation":"#value.substring(0, 9)"}]},"metadata":{"owner":"payments-team","environment":"production"}}
+custom_edit_url: null
+---
+
+import Schema from "@theme/Schema";
+import Heading from "@theme/Heading";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"CreateSpecRequest"}
+>
+</Heading>
+
+
+
+Payload to create or update a file spec
+
+<Schema
+  {...require("./createspecrequest.Schema.json")}
+>
+  
+</Schema>
+            

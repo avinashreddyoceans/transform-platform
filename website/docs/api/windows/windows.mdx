@@ -1,0 +1,53 @@
+---
+title: Windows API
+description: Processing window configuration endpoints
+---
+
+# Windows
+
+> 🚧 **Coming Soon** — This API is under active design. Endpoints return `501 Not Implemented` until released.
+
+Processing windows control how the platform accumulates and flushes records before publishing to Kafka. Instead of processing every record individually, windows let you batch records by time, count, or external trigger — enabling micro-batch and aggregation patterns at scale.
+
+## Window Types
+
+| Type | Description |
+|------|-------------|
+| `TUMBLING` | Fixed-size non-overlapping windows (e.g. every 5 minutes) |
+| `SLIDING` | Overlapping windows that advance by a step interval |
+| `SESSION` | Windows closed by inactivity gap |
+| `TIME_BASED` | Cron-scheduled flush (e.g. daily at 2 AM) |
+| `COUNT_BASED` | Flush when N records accumulate |
+| `EVENT_TRIGGERED` | External signal triggers the flush |
+
+## Planned Workflow
+
+1. **Create** a window: `POST /api/v1/windows`
+2. **Reference** the window ID in a transformation job
+3. Records accumulate until the window condition is met
+4. Window flushes — records are published to Kafka as a batch
+5. **Monitor** window state and late-arrival handling
+
+## Operations
+
+import DocCard from "@theme/DocCard";
+import { useCurrentSidebarCategory } from "@docusaurus/theme-common";
+
+export function CategoryList() {
+  const items = useCurrentSidebarCategory().items;
+  return (
+    <div className="row">
+      {items.map((item, index) => (
+        <DocCard key={index} item={item} />
+      ))}
+    </div>
+  );
+}
+
+<CategoryList />
+
+## Schema References
+
+- [`CreateWindowRequest`](/api/core/schemas/createwindowrequest) — Create/update payload
+- [`WindowResponse`](/api/core/schemas/windowresponse) — Window response structure
+- [`WindowType`](/api/core/schemas/windowtype) — Supported window strategies

@@ -1,0 +1,1 @@
+{"schema":{"type":"string","description":"Supported file formats","enum":["CSV","FIXED_WIDTH","XML","JSON","NACHA","ISO20022","SWIFT_MT","DELIMITED","CUSTOM"],"example":"DELIMITED","title":"FileFormat"},"schemaType":"response"}

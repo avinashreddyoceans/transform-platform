@@ -1,0 +1,1 @@
+{"schema":{"type":"string","description":"Type of automation action to execute","enum":["WEBHOOK","KAFKA_PUBLISH","EMAIL","SLACK","ARCHIVE_FILE","CUSTOM_SCRIPT"],"example":"WEBHOOK","title":"ActionType"},"schemaType":"response"}

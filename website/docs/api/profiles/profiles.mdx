@@ -1,0 +1,49 @@
+---
+title: Profiles API
+description: Client profile management endpoints
+---
+
+# Profiles
+
+> 🚧 **Coming Soon** — This API is under active design. Endpoints return `501 Not Implemented` until released.
+
+Profiles are the top-level organizational unit in the Transform Platform. A profile represents a client, team, or data-source pipeline and acts as a namespace that groups all related resources together.
+
+## What a Profile Provides
+
+- **Namespace** — specs, integrations, credentials, windows, and actions are scoped to a profile
+- **Access control** — future: per-profile API keys and RBAC roles
+- **Audit trail** — all activity within a profile is tracked separately
+- **Metadata** — attach custom key-value tags (region, tier, owner, cost-centre)
+
+## Planned Workflow
+
+1. **Create** a profile: `POST /api/v1/profiles`
+2. **Create specs** scoped to the profile
+3. **Register integrations** (SFTP, S3, etc.) under the profile
+4. **Configure windows and actions** referencing the profile
+5. **Delete** the profile (cascades to all child resources)
+
+## Operations
+
+import DocCard from "@theme/DocCard";
+import { useCurrentSidebarCategory } from "@docusaurus/theme-common";
+
+export function CategoryList() {
+  const items = useCurrentSidebarCategory().items;
+  return (
+    <div className="row">
+      {items.map((item, index) => (
+        <DocCard key={index} item={item} />
+      ))}
+    </div>
+  );
+}
+
+<CategoryList />
+
+## Schema References
+
+- [`CreateProfileRequest`](/api/core/schemas/createprofilerequest) — Create/update payload
+- [`ProfileResponse`](/api/core/schemas/profileresponse) — Profile response structure
+- [`ProfileStatus`](/api/core/schemas/profilestatus) — Lifecycle states (ACTIVE, INACTIVE, SUSPENDED)

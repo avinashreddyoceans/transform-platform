@@ -1,0 +1,79 @@
+---
+title: Spec Management API
+description: File format specification management endpoints
+---
+
+# Spec Management
+
+Manage file format specifications for your data transformations.
+
+## Overview
+
+The Spec Management API provides full CRUD operations for defining and validating file format specifications. Specifications define:
+
+- **File format** (CSV, Fixed-Width, XML)
+- **File encoding** and delimiter settings
+- **Field definitions** with types and validation rules
+- **Header and skip configuration**
+
+## Workflow
+
+1. **Create** a new spec with `POST /api/v1/specs`
+2. **Retrieve** specs with `GET /api/v1/specs` or `GET /api/v1/specs/{id}`
+3. **Update** existing specs with `PUT /api/v1/specs/{id}`
+4. **Validate** specs before use with `POST /api/v1/specs/{id}/validate`
+5. **Delete** specs when no longer needed with `DELETE /api/v1/specs/{id}`
+
+## Operations
+
+import DocCard from "@theme/DocCard";
+import { useCurrentSidebarCategory } from "@docusaurus/theme-common";
+
+export function CategoryList() {
+  const items = useCurrentSidebarCategory().items;
+  return (
+    <div className="row">
+      {items.map((item, index) => (
+        <DocCard key={index} item={item} />
+      ))}
+    </div>
+  );
+}
+
+<CategoryList />
+
+## Example: Create a CSV Spec
+
+```bash
+curl -X POST http://localhost:8080/api/v1/specs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "bank-transactions-csv",
+    "format": "CSV",
+    "delimiter": ",",
+    "hasHeader": true,
+    "fields": [
+      {
+        "name": "transactionId",
+        "type": "STRING",
+        "required": true
+      },
+      {
+        "name": "amount",
+        "type": "DECIMAL",
+        "required": true
+      }
+    ]
+  }'
+```
+
+## Schema References
+
+See the **Schemas** section in the sidebar for detailed field definitions. Key schemas for this API:
+
+- [`CreateSpecRequest`](/api/core/schemas/createspecrequest) — Request payload for creating specs
+- [`FieldSpec`](/api/core/schemas/fieldspec) — Individual field definition
+- [`FieldType`](/api/core/schemas/fieldtype) — Supported field types (STRING, DECIMAL, etc.)
+- [`ValidationRule`](/api/core/schemas/ruletype) — Validation constraint types
+- [`CorrectionRule`](/api/core/schemas/correctionrule) — Auto-correction rules
+

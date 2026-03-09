@@ -1,0 +1,54 @@
+---
+title: Integrations API
+description: External system integration endpoints
+---
+
+# Integrations
+
+> 🚧 **Coming Soon** — This API is under active design. Endpoints return `501 Not Implemented` until released.
+
+Integrations connect the Transform Platform to external file sources and destinations. Register an integration once and reference it by ID in transformation jobs — the platform handles connectivity, authentication, and retry logic.
+
+## Supported Integration Types
+
+| Type | Description |
+|------|-------------|
+| `SFTP` | SSH File Transfer Protocol |
+| `FTP` / `FTPS` | FTP with optional TLS |
+| `S3` | AWS S3 bucket |
+| `AZURE_BLOB` | Azure Blob Storage |
+| `GCS` | Google Cloud Storage |
+| `REST_API` | Generic HTTP endpoint |
+| `DATABASE` | JDBC-compatible database (read/write) |
+| `LOCAL_FS` | Local or network-mounted filesystem |
+
+## Planned Workflow
+
+1. **Store a credential**: `POST /api/v1/credentials` → get a `credentialId`
+2. **Register an integration**: `POST /api/v1/integrations` referencing the `credentialId`
+3. **Test connectivity**: `POST /api/v1/integrations/{id}/test`
+4. **Use in transformation jobs** by referencing the `integrationId` as the source
+
+## Operations
+
+import DocCard from "@theme/DocCard";
+import { useCurrentSidebarCategory } from "@docusaurus/theme-common";
+
+export function CategoryList() {
+  const items = useCurrentSidebarCategory().items;
+  return (
+    <div className="row">
+      {items.map((item, index) => (
+        <DocCard key={index} item={item} />
+      ))}
+    </div>
+  );
+}
+
+<CategoryList />
+
+## Schema References
+
+- [`CreateIntegrationRequest`](/api/core/schemas/createintegrationrequest) — Create/update payload
+- [`IntegrationResponse`](/api/core/schemas/integrationresponse) — Integration response structure
+- [`IntegrationType`](/api/core/schemas/integrationtype) — Supported connector types

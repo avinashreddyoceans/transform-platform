@@ -1,0 +1,32 @@
+---
+id: createwindowrequest
+title: "CreateWindowRequest"
+description: "Payload to create or update a processing window"
+sidebar_label: "CreateWindowRequest"
+hide_title: true
+hide_table_of_contents: true
+schema: true
+sample: {"name":"payments-5min","profileId":"acme-corp","windowType":"TUMBLING","durationMs":300000,"maxRecords":10000,"cronExpression":"0 0 * * *","allowLateArrivals":false,"latencyToleranceMs":5000}
+custom_edit_url: null
+---
+
+import Schema from "@theme/Schema";
+import Heading from "@theme/Heading";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"CreateWindowRequest"}
+>
+</Heading>
+
+
+
+Payload to create or update a processing window
+
+<Schema
+  {...require("./createwindowrequest.Schema.json")}
+>
+  
+</Schema>
+            

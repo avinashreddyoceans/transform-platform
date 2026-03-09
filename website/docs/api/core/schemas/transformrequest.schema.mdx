@@ -1,0 +1,32 @@
+---
+id: transformrequest
+title: "TransformRequest"
+description: "Payload to schedule a transformation job from a server-side source"
+sidebar_label: "TransformRequest"
+hide_title: true
+hide_table_of_contents: true
+schema: true
+sample: {"specId":"acme-payments-v2","sourceType":"LOCAL_PATH","sourceFilePath":"/data/payments/payments_20240315.txt","destinationType":"KAFKA_TOPIC","kafkaTopic":"payments.inbound.raw","outputFilePath":"/data/output/payments_transformed.csv","skipInvalidRecords":false,"delayMs":0,"cronExpression":"0 2 * * *","runOnce":true}
+custom_edit_url: null
+---
+
+import Schema from "@theme/Schema";
+import Heading from "@theme/Heading";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"TransformRequest"}
+>
+</Heading>
+
+
+
+Payload to schedule a transformation job from a server-side source
+
+<Schema
+  {...require("./transformrequest.Schema.json")}
+>
+  
+</Schema>
+            

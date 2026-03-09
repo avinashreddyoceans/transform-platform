@@ -66,6 +66,17 @@ const config: Config = {
 
   plugins: [
     // ── OpenAPI docs generator ────────────────────────────────────────────────
+    // Single spec entry keeps all API docs flat in docs/api/, grouped by tag
+    // in the sidebar (Spec Management / Transform / Health).
+    //
+    // Split source files live in openapi/ for authoring convenience:
+    //   openapi/spec-management.yaml — /api/v1/specs
+    //   openapi/transform.yaml       — /api/v1/transform
+    //   openapi/health.yaml          — /actuator/*
+    // The root openapi.yaml is the combined spec that drives generation.
+    //
+    // To regenerate:  npx docusaurus gen-api-docs all
+    // To clean:       npx docusaurus clean-api-docs all
     [
       'docusaurus-plugin-openapi-docs',
       {
@@ -74,10 +85,10 @@ const config: Config = {
         config: {
           transformplatform: {
             specPath: 'openapi.yaml',
-            outputDir: 'docs/api',
+            outputDir: 'docs/api/core',
             sidebarOptions: {
               groupPathsBy: 'tag',
-              categoryLinkSource: 'tag',
+              categoryLinkSource: 'info',
             },
             showSchemas: true,
           } satisfies OpenApiPluginOptions['config'][string],
@@ -157,7 +168,7 @@ const config: Config = {
           to: '/intro',
           position: 'left',
           label: 'Docs',
-          activeBaseRegex: '^/(?!$|api)',
+          activeBaseRegex: '^/(?!$|api|ops)',
         },
         {
           to: '/integration/overview',
@@ -165,7 +176,7 @@ const config: Config = {
           label: 'Integrations',
         },
         {
-          to: '/api/transform-platform-api',
+          to: '/api/core/transform-platform-api',
           position: 'left',
           label: 'REST API',
         },
@@ -173,6 +184,12 @@ const config: Config = {
           to: '/getting-started',
           position: 'left',
           label: 'Get Started',
+        },
+        {
+          type: 'docSidebar',
+          sidebarId: 'ops',
+          position: 'left',
+          label: '📟 Operations',
         },
         {
           href: 'https://github.com/avinashreddyoceans/transform-platform',
@@ -195,10 +212,10 @@ const config: Config = {
         {
           title: 'API',
           items: [
-            { label: 'REST API Reference', to: '/api/transform-platform-api' },
-            { label: 'FileSpecs',     to: '/api/list-specs' },
-            { label: 'Transform',     to: '/api/transform-file' },
-            { label: 'Integrations',  to: '/api/list-integrations' },
+            { label: 'REST API Reference', to: '/api/core/transform-platform-api' },
+            { label: 'Spec Management',   to: '/api/spec-management/list-specs' },
+            { label: 'Transform',         to: '/api/transform/file-to-events' },
+            { label: 'Health',            to: '/api/health/health-check' },
           ],
         },
         {

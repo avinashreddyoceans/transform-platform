@@ -1,14 +1,23 @@
-# Prometheus scrape configuration for Transform Platform
+# Prometheus scrape configuration for Transform Platform.
 #
-# Two scrape targets:
+# Scrape targets:
 #   1. transform-platform app  → /actuator/prometheus  (Micrometer metrics)
 #   2. otel-collector          → :8889                 (OTel Collector self-metrics)
+#
+# Recording rules + alert rules are loaded from prometheus-rules.yml (mounted at
+# /etc/prometheus/rules.yml).  To hot-reload without restarting the container:
+#   curl -X POST http://localhost:9090/-/reload
 
 global:
   scrape_interval:     15s   # How often to scrape targets
-  evaluation_interval: 15s   # How often to evaluate alerting rules
+  evaluation_interval: 15s   # How often to evaluate recording + alerting rules
   external_labels:
     monitor: transform-platform-local
+
+# Pre-built recording rules and alerting rules.
+# See prometheus-rules.yml for the full set of queries and thresholds.
+rule_files:
+  - /etc/prometheus/rules.yml
 
 scrape_configs:
 

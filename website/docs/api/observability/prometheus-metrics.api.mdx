@@ -1,0 +1,63 @@
+---
+id: prometheus-metrics
+title: "Prometheus scrape endpoint"
+description: "Exposes all Micrometer metrics in Prometheus text exposition format."
+sidebar_label: "Prometheus scrape endpoint"
+hide_title: true
+hide_table_of_contents: true
+api: eJzNVMFyGzcM/RUMckirWWmVTA6Zvbkdu3Ubp57YOXk1FcyFdtlwSZbgbqzR6Nov6Bf2SzrkSrZq5wOqy4og8PAAAm+HkVrB6g5/ZjKxw1WBznOgqJ29bLBCH1zPseNBrjgGrQQLbFhU0D75YIXnD94JC5AxcKVV9ucA/eQO2sL1IwZEfojAKUKncNi40FNc1PZHZze6HQLD1g3hNGQtKpDn31X2kDVEB5MJYqcF2DbeaZtAsMDA4p0VFqx2+Ha5TJ//8j2BPuGYiU1ssEDlbGQbU3C6KL0hbdNJVMc9ZfvWM1YoMWjb4j79CkzALrWt5QTjKXZYYUkqDhRdKJ+6iQUKh5FD6v4Oh2Cwwi5GX5WlcYpM5yRW75fvly8a/iFdQ8MjG+f7RHNfnCJIVZbk9SIGspJKmntDMf1Z8AP13vBCuf4F7HVwzaDyYb8qUNuNy3XqaFKht0c0uD6gwdn15ctpsJGDD1p43gZquADxrOZN0CNb2GjD8M9ffwOPbCM8MszzBmxbbXlR29p+Ixsf5ww+nd/cpuTpvaAnS622LcxmFwn9xrOS2Qy+m3Ch4Y22edgEYkextpkLeAqibVvASEY3mUABZBtQLgTOffg+n2PQbcthSpEKmEc3z/xns2cV1NZrz0ZbnnKBH+6Nlg4CKxcaSaP7K22+UK7x1Sv4gYTh86cPtT0zJpd0nGYBCgw+8EY/cANfdexgnZ61HN+sj+HnIbgAFzl9bafT4wLAIAwEEsk2FBr45ea3j8A2Tw1XtV2v139I4ryrLUCNEikOUmMF75bvisnGCTKZavzoIly4wTY1Hi57FqGWj9f5oWGTXCa6uoHXpHqee9qmMZX5+Pb1Y3TajSn0UFWZ4qV8HlFjbfeZbd7vtDHTpL1ZLBfLw66Syrtqqf/2qGLxfD9GbUm6wE2zdYrJyqLVsRvuF9qVLxenxH2BRiu2wieJri5vMa29dxJ7sic3JyJz0Krjwz7fmN2T2PzPpPSgcCcCuD+0cXdQtjs8KlsSuydtWxWY5Cs57Hb3JPw5mP0+mf8cOGyxulsVOFLQdJ+05W61L7BjajhkMfzCW6zwTCn2qV0jmeE5kdWJ1v50nl7hXxYnaSs=
+sidebar_class_name: "get api-method"
+info_path: api/core/transform-platform-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Prometheus scrape endpoint"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"get"}
+  path={"/actuator/prometheus"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Exposes all Micrometer metrics in Prometheus text exposition format.
+Configure your Prometheus `scrape_configs` to scrape this endpoint.
+
+
+<ParamsDetails
+  parameters={undefined}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./prometheus-metrics.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./prometheus-metrics.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

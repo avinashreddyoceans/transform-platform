@@ -1,0 +1,1 @@
+{"parameters":[{"name":"metricName","in":"path","required":true,"description":"Metric name as returned by `/actuator/metrics`","schema":{"type":"string"},"example":"http.server.requests"},{"name":"tag","in":"query","required":false,"description":"Tag filter in `key:value` format (may be repeated)","schema":{"type":"string"},"example":"uri:/api/v1/transform/file-to-events"}]}

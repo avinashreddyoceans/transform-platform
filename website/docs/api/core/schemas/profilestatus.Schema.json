@@ -1,0 +1,1 @@
+{"schema":{"type":"string","description":"Lifecycle status of a profile","enum":["ACTIVE","INACTIVE","SUSPENDED"],"example":"ACTIVE","title":"ProfileStatus"},"schemaType":"response"}

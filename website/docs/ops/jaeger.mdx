@@ -1,0 +1,205 @@
+---
+id: jaeger
+title: Jaeger (Tracing)
+sidebar_label: Jaeger
+sidebar_position: 5
+---
+
+# Jaeger
+
+Jaeger is the distributed tracing tool. Every request handled by the Transform Platform creates a **trace** — a tree of **spans** that records exactly what happened, which code ran, how long each step took, and what attributes were attached.
+
+Jaeger is the fastest way to answer: *"Why was this specific request slow?"* or *"Where did this request fail?"*
+
+**URL:** [http://localhost:16686](http://localhost:16686)
+
+---
+
+## Key Concepts
+
+| Term | Meaning |
+|------|---------|
+| **Trace** | The full journey of one request through the system — a tree of spans |
+| **Span** | One unit of work within a trace (e.g., one HTTP handler call, one DB query) |
+| **TraceId** | 32-hex-character ID that uniquely identifies a trace — appears in every log line |
+| **SpanId** | 16-hex-character ID for one span within a trace |
+| **Parent span** | The span that caused this one (e.g., the HTTP handler spawning a DB query) |
+| **Operation name** | The name of the work done (e.g., `GET /api/v1/specs`, `SELECT transform_specs`) |
+| **Tags / Attributes** | Key-value metadata on a span (HTTP status, SQL statement, error details) |
+| **Logs / Events** | Time-stamped messages within a span (e.g., an exception recorded on the span) |
+
+---
+
+## Navigating the Jaeger UI
+
+### Search for traces
+
+1. Open [http://localhost:16686](http://localhost:16686).
+2. In the **Search** panel (left):
+   - **Service**: `transform-platform`
+   - **Operation**: All (or pick a specific endpoint)
+   - **Tags**: filter by attributes (see examples below)
+   - **Lookback**: time window to search
+   - **Min / Max Duration**: filter by trace duration
+3. Click **Find Traces**.
+
+### Find a trace by ID
+
+The fastest path when you have a `traceId` from a log:
+
+1. Paste the `traceId` directly into the **Search by Trace ID** box at the top.
+2. Press **Enter**.
+
+### Reading a trace
+
+Once you open a trace, you see:
+- A **gantt chart** showing each span's start time and duration.
+- Nested indentation shows parent → child relationships.
+- Click any span to expand its tags, logs, and process details.
+- The root span at the top is the incoming HTTP request.
+
+---
+
+## Finding Traces by Tag (Examples)
+
+Tags are key-value pairs that can be used to filter traces in the search panel.
+
+### Filter by HTTP status code
+
+```
+http.status_code=500
+http.status_code=404
+```
+
+### Filter by HTTP method and URL
+
+```
+http.request.method=POST
+http.route=/api/v1/transform
+```
+
+### Filter by error
+
+```
+error=true
+```
+
+### Filter by a specific span attribute
+
+```
+specId=csv-to-json
+```
+
+---
+
+## Connecting Logs → Jaeger
+
+Every log line contains `traceId`. Use it to jump straight to the trace:
+
+1. In **Kibana**, find a log line with an error or an interesting `traceId`.
+2. Copy the `traceId` value (32 hex characters).
+3. In **Jaeger**, paste it into **Search by Trace ID**.
+4. Press **Enter** — you land on the exact trace for that request.
+
+You can also construct the direct URL:
+```
+http://localhost:16686/trace/<traceId>
+```
+
+Example:
+```
+http://localhost:16686/trace/4bf92f3577b34da6a3ce929d0e0e4736
+```
+
+---
+
+## Understanding a Transform Platform Trace
+
+A typical trace for `POST /api/v1/transform` looks like:
+
+```
+[root span]  POST /api/v1/transform                              250ms
+│
+├── [span]   TransformService.execute                            230ms
+│   │
+│   ├── [span]  SELECT * FROM transform_specs WHERE id = ?         5ms
+│   │           └── Tags: db.system=postgresql, db.name=transform_platform
+│   │
+│   ├── [span]  FileParser.parse                                   80ms
+│   │
+│   ├── [span]  ValidationService.validate                         15ms
+│   │
+│   └── [span]  FileWriter.write                                  120ms
+│
+└── [span]   Outbound HTTP → integration endpoint                  10ms
+             └── Tags: http.url=https://partner.example.com/ingest
+```
+
+Key things to check in each span:
+- **Duration** — is this span taking longer than expected?
+- **Tags** — does `error=true` appear? What's the `http.status_code`?
+- **Logs** — is there an exception recorded on the span?
+
+---
+
+## Common Workflows
+
+### Workflow: Trace a slow request
+
+```
+1. Grafana shows p99 latency spike at 10:30 UTC
+2. Jaeger → Search
+   Service: transform-platform
+   Operation: POST /api/v1/transform
+   Lookback: Last 15 minutes
+   Min Duration: 1s
+3. Click the slowest trace in the results
+4. Expand spans — find the span with the longest bar
+5. Click that span → check Tags for SQL query or external call
+```
+
+### Workflow: Trace a failed request
+
+```
+1. Kibana: level: "ERROR" AND message: "Transform failed"
+   → Copy traceId from the log line
+2. Jaeger: Search by Trace ID → paste traceId
+3. In the trace view, find the span with error=true (shown in red)
+4. Expand that span → check the "Logs" section for the exception message
+```
+
+### Workflow: Compare a slow request to a fast one
+
+```
+1. Jaeger → Search for the same operation over a time range
+2. Results are sorted by duration — compare the slowest to the fastest
+3. Click both and use the "Compare" feature (Jaeger → Compare)
+   → Highlights which spans are longer in one vs the other
+```
+
+---
+
+## Jaeger UI Tips
+
+- **Collapse all spans**: Useful for long traces — click the root span to collapse children.
+- **Search within a trace**: Use `Ctrl+F` in your browser to find a specific operation name.
+- **Span colour coding**: Red spans have `error=true`. All other spans are colour-coded by service.
+- **Export trace**: On the trace page, use the **Download** button (JSON) to share a trace with your team.
+- **Deep linking**: Copy the URL from your browser — it includes the traceId and can be shared directly.
+
+---
+
+## Trace Retention
+
+The local Jaeger instance uses in-memory storage with a limit of **50,000 traces** (configured in docker-compose.yml). Oldest traces are dropped first when the limit is reached. This is sufficient for development and debugging but not for production — use a persistent backend (Elasticsearch, Cassandra) in production.
+
+---
+
+## Study Material
+
+- [Jaeger Getting Started](https://www.jaegertracing.io/docs/latest/getting-started/)
+- [OpenTelemetry Concepts](https://opentelemetry.io/docs/concepts/observability-primer/)
+- [OpenTelemetry Java Agent](https://opentelemetry.io/docs/zero-code/java/agent/)
+- [Distributed Tracing — What, Why, How (blog)](https://www.jaegertracing.io/docs/latest/faq/)
+- [W3C TraceContext Standard](https://www.w3.org/TR/trace-context/) — the traceId format
+- [Correlating Logs and Traces (OTel)](https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-traceid)

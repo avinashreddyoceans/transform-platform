@@ -1,0 +1,1 @@
+{"schema":{"type":"object","description":"Minimal health response for liveness/readiness probes","properties":{"status":{"type":"string","enum":["UP","DOWN","OUT_OF_SERVICE","UNKNOWN"],"example":"UP"}},"title":"SimpleHealthResponse"},"schemaType":"response"}

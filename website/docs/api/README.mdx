@@ -1,0 +1,405 @@
+---
+title: API Documentation
+description: Transform Platform API Reference
+---
+
+# Transform Platform API
+
+Complete API reference for the Transform Platform.
+
+## Quick Navigation
+
+### 📋 [Spec Management](spec-management/spec-management.mdx)
+Define and manage file format specifications (CSV, Fixed-Width, XML)
+
+- Create, read, update, delete specifications
+- Validate specifications before use
+- Define complex field mappings and validation rules
+
+**See Also:** [Spec Management API Endpoints](spec-management/spec-management.mdx)
+
+### 🔄 [Transform](transform/transform.mdx)
+Transform files into Kafka events
+
+- Parse files according to specifications
+- Publish records to Kafka in real-time
+- Schedule batch transformations
+- Track transformation status and metrics
+
+**See Also:** [Transform API Endpoints](transform/transform.mdx)
+
+### 💚 [Health](health/health.mdx)
+Monitor application health and readiness
+
+- Application health check
+- Kubernetes liveness probe
+- Kubernetes readiness probe
+
+**See Also:** [Health API Endpoints](health/health.mdx)
+
+### 📈 [Observability](observability/observability.mdx)
+Track application performance and metrics
+
+- List available metrics
+- Get specific metric values
+- Prometheus-compatible scrape endpoint
+
+**See Also:** [Observability API Endpoints](observability/observability.mdx)
+
+---
+
+## Getting Started
+
+### 1. Start the Application
+
+```bash
+# Start Docker dependencies
+docker compose -f .docker/docker-compose.yml up -d
+
+# Build and run the app
+./gradlew :platform-api:bootRun
+```
+
+### 2. Verify Health
+
+```bash
+curl http://localhost:8080/actuator/health
+```
+
+### 3. Create Your First Spec
+
+```bash
+curl -X POST http://localhost:8080/api/v1/specs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-csv-spec",
+    "format": "CSV",
+    "delimiter": ",",
+    "hasHeader": true,
+    "fields": [
+      {
+        "name": "id",
+        "type": "STRING",
+        "required": true
+      }
+    ]
+  }'
+```
+
+### 4. Transform a File
+
+```bash
+curl -X POST http://localhost:8080/api/v1/transform/file-to-events \
+  -F "specId=<spec-id-from-step-3>" \
+  -F "kafkaTopic=my-topic" \
+  -F "file=@my-file.csv"
+```
+
+---
+
+## API Structure
+
+```
+website/docs/api/
+├── _core/                        ← Shared resources
+│   ├── sidebar.ts               ← Navigation configuration
+│   ├── transform-platform-api.info.mdx  ← API overview
+│   ├── schemas/                 ← JSON schemas and types
+│   │   ├── FieldSpec.schema.mdx
+│   │   ├── CreateSpecRequest.schema.mdx
+│   │   ├── TransformRequest.schema.mdx
+│   │   └── ... (20+ schema definitions)
+│   ├── health.tag.mdx           ← Health API tag
+│   ├── spec-management.tag.mdx  ← Spec Management tag
+│   └── transform.tag.mdx        ← Transform tag
+│
+├── spec-management/             ← Spec Management endpoints
+│   ├── spec-management.mdx      ← Category overview
+│   ├── create-spec.api.mdx      ← POST /api/v1/specs
+│   ├── list-specs.api.mdx       ← GET /api/v1/specs
+│   ├── get-spec.api.mdx         ← GET /api/v1/specs/{id}
+│   ├── update-spec.api.mdx      ← PUT /api/v1/specs/{id}
+│   ├── delete-spec.api.mdx      ← DELETE /api/v1/specs/{id}
+│   ├── validate-spec.api.mdx    ← POST /api/v1/specs/{id}/validate
+│   └── (request/response JSON schemas)
+│
+├── transform/                   ← Transform endpoints
+│   ├── transform.mdx            ← Category overview
+│   ├── file-to-events.api.mdx   ← POST /api/v1/transform/file-to-events
+│   ├── schedule-transform.api.mdx ← POST /api/v1/transform/schedule
+│   ├── get-transform-status.api.mdx ← GET /api/v1/transform/status/{id}
+│   └── (request/response JSON schemas)
+│
+├── health/                      ← Health endpoints
+│   ├── health.mdx               ← Category overview
+│   ├── health-check.api.mdx     ← GET /actuator/health
+│   ├── liveness-probe.api.mdx   ← GET /actuator/health/liveness
+│   ├── readiness-probe.api.mdx  ← GET /actuator/health/readiness
+│   └── (request/response JSON schemas)
+│
+└── observability/               ← Observability endpoints
+    ├── observability.mdx        ← Category overview
+    ├── list-metrics.api.mdx     ← GET /actuator/metrics
+    ├── get-metric.api.mdx       ← GET /actuator/metrics/{name}
+    ├── prometheus-metrics.api.mdx ← GET /actuator/prometheus
+    └── (request/response JSON schemas)
+```
+
+---
+
+## Key Concepts
+
+### File Specifications
+
+A **Spec** defines the structure of a file:
+
+```json
+{
+  "name": "bank-transactions-v1",
+  "format": "CSV",               // CSV | FIXED_WIDTH | XML
+  "encoding": "UTF-8",
+  "delimiter": ",",              // For CSV
+  "hasHeader": true,
+  "skipLinesCount": 0,
+  "fields": [
+    {
+      "name": "transactionId",
+      "type": "STRING",
+      "columnName": "TXN_ID",
+      "required": true,
+      "maxLength": 36
+    }
+  ]
+}
+```
+
+### Transformations
+
+**Transform** a file into Kafka events:
+
+```json
+{
+  "specId": "spec-123",
+  "kafkaTopic": "transactions",
+  "skipInvalidRecords": false,
+  "file": "<binary CSV data>"
+}
+```
+
+Returns:
+
+```json
+{
+  "correlationId": "corr-456",
+  "recordsProcessed": 1000,
+  "recordsPublished": 998,
+  "recordsFailed": 2,
+  "duration": "2.5s"
+}
+```
+
+### Validation & Correction
+
+Specs can include **validation rules** and **correction rules**:
+
+```json
+{
+  "validationRules": [
+    {
+      "fieldName": "amount",
+      "type": "RANGE",
+      "min": 0,
+      "max": 999999,
+      "severity": "ERROR"
+    }
+  ],
+  "correctionRules": [
+    {
+      "fieldName": "date",
+      "type": "FORMAT_DATE",
+      "sourceFormat": "MM/dd/yyyy",
+      "targetFormat": "yyyy-MM-dd"
+    }
+  ]
+}
+```
+
+---
+
+## Monitoring & Observability
+
+### Health Endpoints
+
+- `GET /actuator/health` — Full health report
+- `GET /actuator/health/liveness` — Kubernetes liveness (always UP if running)
+- `GET /actuator/health/readiness` — Kubernetes readiness (checks dependencies)
+
+### Metrics
+
+- `GET /actuator/metrics` — List all metrics
+- `GET /actuator/metrics/{name}` — Get specific metric
+- `GET /actuator/prometheus` — Prometheus-compatible scrape format
+
+### Dashboards
+
+- Swagger UI: http://localhost:8080/swagger-ui
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3001 (admin / admin)
+- Jaeger: http://localhost:16686
+- Kibana: http://localhost:5601
+
+---
+
+## Error Handling
+
+All endpoints follow standard HTTP status codes:
+
+| Code | Meaning |
+|------|---------|
+| 200 | Success |
+| 201 | Created |
+| 204 | No Content |
+| 400 | Bad Request (validation error) |
+| 404 | Not Found |
+| 409 | Conflict (duplicate spec name) |
+| 500 | Server Error |
+
+Error response format:
+
+```json
+{
+  "timestamp": "2025-01-15T10:30:00Z",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Field 'delimiter' is required for CSV format",
+  "path": "/api/v1/specs"
+}
+```
+
+---
+
+## Authentication & Security
+
+Development environment has **no authentication** by default.
+
+For production:
+- Configure OAuth2 or API Keys in `application.yml`
+- Use `X-Correlation-Id` header for request tracking
+- All endpoints use HTTPS
+- CORS configured for `localhost:3000/3001` and GitHub Pages
+
+---
+
+## Rate Limiting
+
+No rate limiting in development. Production defaults:
+- 100 requests per minute per IP
+- 1 file max 100MB
+- 10 concurrent transformations per API key
+
+---
+
+## Webhooks & Async
+
+File transformations are **asynchronous**:
+
+1. POST to `/api/v1/transform/file-to-events` returns immediately with `correlationId`
+2. File parsing happens in background
+3. Records published to Kafka asynchronously
+4. Poll `GET /api/v1/transform/status/{correlationId}` for updates
+
+---
+
+## Integration Examples
+
+### With cURL
+
+```bash
+# List specs
+curl http://localhost:8080/api/v1/specs
+
+# Create spec
+curl -X POST http://localhost:8080/api/v1/specs \
+  -H "Content-Type: application/json" \
+  -d @spec.json
+
+# Transform file
+curl -X POST http://localhost:8080/api/v1/transform/file-to-events \
+  -F "specId=123" \
+  -F "kafkaTopic=records" \
+  -F "file=@data.csv"
+```
+
+### With Python
+
+```python
+import requests
+
+# Create spec
+spec = {
+    "name": "csv-spec",
+    "format": "CSV",
+    "delimiter": ",",
+    "fields": [{"name": "id", "type": "STRING"}]
+}
+resp = requests.post(
+    "http://localhost:8080/api/v1/specs",
+    json=spec
+)
+spec_id = resp.json()["id"]
+
+# Transform file
+with open("data.csv", "rb") as f:
+    resp = requests.post(
+        "http://localhost:8080/api/v1/transform/file-to-events",
+        data={"specId": spec_id, "kafkaTopic": "records"},
+        files={"file": f}
+    )
+    print(resp.json())
+```
+
+### With HTTP Client (IntelliJ)
+
+See `../../http/` directory for pre-written HTTP request examples for all endpoints.
+
+---
+
+## OpenAPI / Swagger
+
+- **OpenAPI JSON:** `/api-docs`
+- **OpenAPI YAML:** `/api-docs.yaml`
+- **Swagger UI:** `/swagger-ui`
+
+Try API requests directly in Swagger UI using the "Try It Out" button.
+
+---
+
+## Contributing
+
+API documentation is auto-generated from:
+- OpenAPI spec (`website/docs/openapi.yaml`)
+- Docusaurus markdown files in this directory
+
+When adding new endpoints:
+1. Update OpenAPI spec
+2. Regenerate API docs
+3. Add category overview pages (`_category_.mdx`)
+4. Update this README
+
+---
+
+## Support & Troubleshooting
+
+- **API won't respond?** Check health: `curl http://localhost:8080/actuator/health`
+- **Transformation fails?** Validate spec: `POST /api/v1/specs/{id}/validate`
+- **Metric not found?** List all: `GET /actuator/metrics`
+- **Docker issues?** See `.docker/README.md`
+
+---
+
+## See Also
+
+- [Development Guide](/developer-setup)
+- HTTP Requests — See `http/` directory in the repo for pre-written test requests
+- [Architecture](/architecture)
+

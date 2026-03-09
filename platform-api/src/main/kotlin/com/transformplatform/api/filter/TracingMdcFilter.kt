@@ -69,9 +69,14 @@ class TracingMdcFilter(private val tracer: Tracer) : OncePerRequestFilter() {
             MDC.put(SPAN_ID_KEY,  span.context().spanId())
         }
 
+        // Log entry/exit here so both traceId (just written above) and correlationId
+        // (written by CorrelationIdFilter at HIGHEST_PRECEDENCE) are in the MDC snapshot.
+        log.debug { "--> ${request.method} ${request.requestURI}" }
+
         try {
             filterChain.doFilter(request, response)
         } finally {
+            log.debug { "<-- ${request.method} ${request.requestURI} ${response.status}" }
             if (hasTrace) {
                 MDC.remove(TRACE_ID_KEY)
                 MDC.remove(SPAN_ID_KEY)

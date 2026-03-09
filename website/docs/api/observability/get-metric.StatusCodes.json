@@ -1,0 +1,1 @@
+{"responses":{"200":{"description":"Metric details","content":{"application/json":{"schema":{"type":"object","properties":{"name":{"type":"string"},"measurements":{"type":"array","items":{"type":"object","properties":{"statistic":{"type":"string"},"value":{"type":"number"}}}}}}}}},"404":{"description":"Metric not found"}}}

@@ -1,0 +1,69 @@
+---
+id: get-metric
+title: "Get metric value"
+description: "Returns the current value(s) for a specific Micrometer metric."
+sidebar_label: "Get metric value"
+hide_title: true
+hide_table_of_contents: true
+api: eJylVk1v20YQ/SuDzSG2QIlK4EPAmwvYqdvYDWznFBrQiByRG5O7m92hakHQtb+gv7C/pJglJSuWgjatLtJ+zbydfe+N1oqxCir7rH4mbLhWD4myjjyytuaqVJmqiK+JvS5UokoKhddO1lSmbok7bwJwTVB03pNhWGLT0Uk4hYX1gBAcFXqhC7jWhbctMXloY7SJSpRDj3FOAKyVwZZUpvr1GxkkSksih1yrRHn62mlPpcrYd/QSTQ8SJAhgAB/BUQnzFcxSLLhDtj7tg4eZSlQoampRZWvFKyeJA3ttKrVJFD1h6xqZq5ndJJBfkp9Ifgoc1CbZgWWstii/duRX38BcYBMOcN5jBQvdSCW0gdkjrbJYtJmUrEWGkxZXMCfw5AiZytN/i7XzOkvR6XT5JmWPJkjAdKEbGrMd05KMYH8QhMFZEyhIwLfTqXwdLWZJjLoJKlGFNUyGZSc61+giEiT9EmT7+hCfnX+hguWNvdCJdZ+sr9qRW7SEofPURozPG9B7lJpqpjb8c/jAyDqwLo7miGXeWzFdOyevNttPos6mZ9+thbEMC9uZUm0iXq7tII/IZK5Vpg54lq6f2byRd4xM6une+WYgWJamjS2wqW3g7N303fRAah9kGUpaUmOdFCly8DlCyFJ5+cnu2ceuQZYfk4Efk8K2B2E/elt2RRwIL7RZ2FgfzZFQ99to8HGIBucfrw6iXBgm77wONK48lpRE2Y9Lr5dkhOsEf/3xJ0QCwg5hJBCQqbShSW5ycyQbPTkbKADC7cXdvSSPvtKiwUqbCkajS4l+56gIoxGcDAoqaaGNlvhiTsi5iVjAoQ/aVIm4lC4jgATQlFBY7ynW4TSO2euqIt+n+EZAo9GLG+TGaUeNNtTnAtfNGx1q8FRYXwZgC7/i4hHjHV+9gp8wEHy6/ZCb86aJVyJTOqsNB0BP4Dwt9BOV8LvmWqwrCnq2PX7hvfVwGdPnph/t9AxdIHFdRlOiL+GXu99ugExkDWW5mc1motjcrHMDkEe9dCFXGZxNz5J+jiSkTOXqxjJcCuVzNSy2FAJWtF2OD92rooerS3iNRUtjh6uo5fHy7evdaVFJf3RrU3I+pC9P5Co3m4g2NypRopieaW8m08l0cCMs+NlRjlBVJS/1sdQGQ+2pLFe2IDRhUmmuu/lE2/RQOKlYRqMLMoH2El1f3UcDcDZwi2Zv5T3x0Nv6LvhSJ+tnE/3/rXOwMKYnTl2D2gjaeN/1YEaf1daMVDL0VDHybK+9PiRKLEf2rtdzDPTJN5uNTPe9TFyq1AHnzfe62f6d/lNjO3qPR1rtWutg2ioa1BK9FjQ/iOzkdmjJp/DD/xKOAtx2J7PaR7gFvlfhzcMmUTVhST5i7jecFwU53jt60FLlsrsW8/5CKPc3WCVeuQ==
+sidebar_class_name: "get api-method"
+info_path: api/core/transform-platform-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Get metric value"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"get"}
+  path={"/actuator/metrics/{metricName}"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Returns the current value(s) for a specific Micrometer metric.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./get-metric.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./get-metric.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./get-metric.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

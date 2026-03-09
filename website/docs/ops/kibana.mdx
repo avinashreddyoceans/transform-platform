@@ -1,0 +1,263 @@
+---
+id: kibana
+title: Kibana
+sidebar_label: Kibana
+sidebar_position: 4
+---
+
+# Kibana
+
+Kibana is the log search and analysis tool for the Transform Platform. All structured JSON logs emitted by the app are shipped to Elasticsearch via the OpenTelemetry Collector's `filelog` receiver and are fully searchable here.
+
+**URL:** [http://localhost:5601](http://localhost:5601)
+
+---
+
+## Getting to the Log Search View
+
+1. Open [http://localhost:5601](http://localhost:5601).
+2. In the left sidebar, click **Discover** (the compass icon).
+3. Select the **`transform-platform-logs*`** data view from the top-left dropdown.
+4. Set your time range in the top-right corner (e.g., `Last 15 minutes`).
+5. Type a KQL query in the search bar and press **Enter** or click **Refresh**.
+
+If the data view doesn't exist, navigate to **Stack Management → Data Views → Create** and set the pattern to `transform-platform-logs*` with `@timestamp` as the time field.
+
+---
+
+## Log Fields Reference
+
+Every log line from the app is a structured JSON document. Key fields:
+
+| Field | Type | Example | Notes |
+|-------|------|---------|-------|
+| `@timestamp` | date | `2026-03-09T10:45:32.123Z` | UTC, auto-indexed |
+| `level` | keyword | `ERROR` | `TRACE` `DEBUG` `INFO` `WARN` `ERROR` |
+| `message` | text | `Transform failed for specId=csv-to-json` | Full text, use free-text search |
+| `traceId` | keyword | `4bf92f3577b34da6a3ce929d0e0e4736` | Match to Jaeger for span details |
+| `spanId` | keyword | `00f067aa0ba902b7` | OTel span ID |
+| `correlationId` | keyword | `1de41fa4-3d2c-48e7-acc4-297f0800bc5b` | Per-request UUID (also in response header `X-Correlation-ID`) |
+| `logger_name` | keyword | `c.t.api.service.TransformService` | Originating class |
+| `thread_name` | keyword | `http-nio-8080-exec-3` | OS thread name |
+| `service.name` | keyword | `transform-platform` | Set in OTel config |
+| `host.name` | keyword | `my-mac.local` | Host that ran the app |
+
+---
+
+## KQL Query Syntax
+
+KQL (Kibana Query Language) is the search language for the Discover view.
+
+| Pattern | Syntax | Example |
+|---------|--------|---------|
+| Exact field match | `field: "value"` | `level: "ERROR"` |
+| Wildcard | `field: value*` | `logger_name: c.t.api.service*` |
+| Range | `field >= value` | `@timestamp >= "now-1h"` |
+| AND | `a AND b` | `level: "ERROR" AND service.name: "transform-platform"` |
+| OR | `a OR b` | `level: "ERROR" OR level: "WARN"` |
+| NOT | `NOT a` or `-a` | `NOT level: "DEBUG"` |
+| Nested grouping | `(a OR b) AND c` | `(level: "ERROR" OR level: "WARN") AND traceId: *` |
+| Exists check | `field: *` | `traceId: *` |
+| Free-text | `"phrase"` | `"OutOfMemoryError"` |
+
+---
+
+## KQL Query Examples
+
+### By Log Level
+
+```kql
+# All errors
+level: "ERROR"
+
+# All warnings
+level: "WARN"
+
+# Errors and warnings together
+level: "ERROR" OR level: "WARN"
+
+# Everything except DEBUG and TRACE (useful for production noise reduction)
+NOT level: "DEBUG" AND NOT level: "TRACE"
+```
+
+---
+
+### Finding a Specific Request
+
+```kql
+# Find all logs for a specific trace (copy traceId from a Grafana alert or response header)
+traceId: "4bf92f3577b34da6a3ce929d0e0e4736"
+
+# Find by correlation ID (from the X-Correlation-ID response header)
+correlationId: "1de41fa4-3d2c-48e7-acc4-297f0800bc5b"
+
+# Combine: all errors for a specific trace
+level: "ERROR" AND traceId: "4bf92f3577b34da6a3ce929d0e0e4736"
+```
+
+---
+
+### By Service / Class / Thread
+
+```kql
+# All logs from the transform service class
+logger_name: "c.t.api.service.TransformService"
+
+# All logs from any class in the service package
+logger_name: c.t.api.service*
+
+# Logs from a specific HTTP thread
+thread_name: "http-nio-8080-exec-5"
+
+# Logs from any worker thread
+thread_name: *worker*
+```
+
+---
+
+### HTTP Request Logs
+
+```kql
+# All incoming POST requests
+message: "POST"
+
+# Logs for a specific endpoint
+message: "/api/v1/transform"
+
+# Requests that returned 500
+message: "500"
+
+# Entry/exit logs (logged by TracingMdcFilter)
+message: "-->" OR message: "<--"
+
+# Slow requests (example: looking for 2xx with duration mentioned)
+message: "<--" AND message: "200"
+```
+
+---
+
+### Errors and Exceptions
+
+```kql
+# All log lines containing "Exception"
+message: *Exception*
+
+# NullPointerException specifically
+message: "NullPointerException"
+
+# All stack traces (usually contain "at com.")
+message: "at com."
+
+# Database errors
+message: *SQLException* OR message: *DataAccessException* OR message: *HikariCP*
+
+# Connection refused
+message: "Connection refused"
+
+# Timeout errors
+message: *Timeout* OR message: *timeout*
+```
+
+---
+
+### Transform Pipeline Errors
+
+```kql
+# All transform failures
+message: "Transform failed" AND level: "ERROR"
+
+# Errors for a specific spec
+message: "specId=csv-to-json" AND level: "ERROR"
+
+# Validation errors
+message: *ValidationException* OR message: "validation failed"
+
+# File processing errors
+message: *FileNotFoundException* OR message: "Failed to read"
+```
+
+---
+
+### Time-Based Searches
+
+Use the time picker in the top-right for most searches. For inline time filtering:
+
+```kql
+# Last 30 minutes — use the time picker
+# Or with absolute timestamps:
+@timestamp >= "2026-03-09T10:00:00" AND @timestamp <= "2026-03-09T10:30:00"
+
+# Errors in the last 5 minutes (combine with time picker set to "Last 5 minutes")
+level: "ERROR"
+```
+
+---
+
+## Using the Discover View Effectively
+
+### Add columns to the results table
+
+By default only `@timestamp` and `message` show. To add more:
+1. In the left panel, find a field like `level` or `traceId`.
+2. Hover over it and click **+** to add it as a column.
+3. Drag columns to reorder them.
+
+### Recommended column set for operations
+
+Add these fields as columns for a clean log table:
+`@timestamp` → `level` → `traceId` → `correlationId` → `logger_name` → `message`
+
+### Save a search
+
+1. Click **Save** (top-right) → give it a name like "Errors last hour".
+2. Saved searches appear under **Discover → Open**.
+
+### Create a visualisation from logs
+
+1. From Discover, click **Visualize** (chart icon) on a field like `level`.
+2. This opens a bar chart of log counts by level over time — useful for spotting error spikes.
+
+---
+
+## Common Operations Workflows
+
+### Workflow: Alert fired — find the cause in logs
+
+```
+1. Note the alert time from Prometheus /alerts
+2. Kibana: set time range to ±5 minutes around the alert
+3. Query: level: "ERROR"
+4. Click the first error line → expand → copy traceId
+5. Query: traceId: "<copied-id>"
+   → See every log line for that request, in order
+6. Paste the traceId into Jaeger for the full distributed trace
+```
+
+### Workflow: User reports a failed API call
+
+```
+1. Ask the user for the X-Correlation-ID header from the response
+2. Kibana query: correlationId: "<their-id>"
+   → All log lines for that exact request, with full context
+```
+
+### Workflow: Investigate a class of errors overnight
+
+```
+1. Set time range to "Yesterday" or a specific window
+2. Query: level: "ERROR"
+3. Click "Inspect" on the field panel for `message`
+   → Shows top error messages by count
+4. Click a message to filter to just that error
+```
+
+---
+
+## Study Material
+
+- [Kibana KQL Reference](https://www.elastic.co/guide/en/kibana/current/kuery-query.html)
+- [Kibana Discover Guide](https://www.elastic.co/guide/en/kibana/current/discover.html)
+- [Elasticsearch Query DSL](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl.html) (advanced)
+- [ECS (Elastic Common Schema)](https://www.elastic.co/guide/en/ecs/current/ecs-reference.html) — field naming conventions
+- [OpenTelemetry Filelog Receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/filelogreceiver)
+- [Structured Logging Best Practices (blog)](https://www.elastic.co/blog/structured-logging-with-elk-stack)

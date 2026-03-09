@@ -1,0 +1,100 @@
+---
+title: Health Check API
+description: Application health and Kubernetes probe endpoints
+---
+
+# Health
+
+Monitor application health and readiness.
+
+## Overview
+
+Health endpoints provide insights into the application's operational status:
+
+- **Overall Health** — Is the app running?
+- **Liveness Probe** — Is the app responsive? (Kubernetes)
+- **Readiness Probe** — Is the app ready to serve traffic? (Kubernetes)
+
+These endpoints follow Spring Boot Actuator conventions and integrate with Kubernetes orchestration.
+
+## Use Cases
+
+- **Kubernetes Liveness Probe** — Restarts pod if app is unresponsive
+- **Kubernetes Readiness Probe** — Removes pod from load balancer if not ready
+- **Load Balancer Health Checks** — Verify backend health
+- **Monitoring Dashboards** — Track uptime and dependencies
+- **CI/CD Pipelines** — Wait for app startup before running tests
+
+## Operations
+
+import DocCard from "@theme/DocCard";
+import { useCurrentSidebarCategory } from "@docusaurus/theme-common";
+
+export function CategoryList() {
+  const items = useCurrentSidebarCategory().items;
+  return (
+    <div className="row">
+      {items.map((item, index) => (
+        <DocCard key={index} item={item} />
+      ))}
+    </div>
+  );
+}
+
+<CategoryList />
+
+## Example: Check Health
+
+```bash
+# Full health report with all dependencies
+curl http://localhost:8080/actuator/health
+
+# Response:
+# {
+#   "status": "UP",
+#   "components": {
+#     "db": { "status": "UP" },
+#     "kafka": { "status": "UP" },
+#     "diskSpace": { "status": "UP" }
+#   }
+# }
+```
+
+## Kubernetes Integration
+
+### Liveness Probe Configuration
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 10
+```
+
+### Readiness Probe Configuration
+
+```yaml
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: 8080
+  initialDelaySeconds: 20
+  periodSeconds: 5
+```
+
+## Dependencies Checked
+
+- **Database** — PostgreSQL connectivity
+- **Kafka** — Message broker availability
+- **Disk Space** — Storage capacity
+- **Custom Checks** — Application-specific health
+
+## Schema References
+
+See the **Schemas** section in the sidebar for detailed definitions. Key schemas for this API:
+
+- [`HealthResponse`](/api/core/schemas/healthresponse) — Full health response with component details
+- [`SimpleHealthResponse`](/api/core/schemas/simplehealthresponse) — Minimal health status
+
