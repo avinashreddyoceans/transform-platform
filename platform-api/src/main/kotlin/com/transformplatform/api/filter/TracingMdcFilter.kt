@@ -44,8 +44,8 @@ private val log = KotlinLogging.logger {}
  * ## Non-HTTP threads
  *
  * Kafka consumers, scheduled tasks, and other non-Servlet threads are not covered by
- * this filter. For those, the [com.transformplatform.api.logging.OtelTracingAppender]
- * enriches the log event via the OTel thread-local context at appender time.
+ * this filter. The Log4j2 OpenTelemetryAppender reads the active OTel context at
+ * append time and attaches trace/span IDs as log record attributes automatically.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 2)
@@ -53,20 +53,16 @@ class TracingMdcFilter(private val tracer: Tracer) : OncePerRequestFilter() {
 
     companion object {
         const val TRACE_ID_KEY = "traceId"
-        const val SPAN_ID_KEY  = "spanId"
+        const val SPAN_ID_KEY = "spanId"
     }
 
-    override fun doFilterInternal(
-        request: HttpServletRequest,
-        response: HttpServletResponse,
-        filterChain: FilterChain,
-    ) {
+    override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, filterChain: FilterChain) {
         val span = tracer.currentSpan()
         val hasTrace = span != null && span.context().traceId().isNotBlank()
 
         if (hasTrace) {
             MDC.put(TRACE_ID_KEY, span!!.context().traceId())
-            MDC.put(SPAN_ID_KEY,  span.context().spanId())
+            MDC.put(SPAN_ID_KEY, span.context().spanId())
         }
 
         // Log entry/exit here so both traceId (just written above) and correlationId

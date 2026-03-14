@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jlleitschuh.gradle.ktlint.reporter.ReporterType
 
 plugins {
     kotlin("jvm") version "1.9.22" apply false
@@ -6,16 +7,26 @@ plugins {
     kotlin("plugin.jpa") version "1.9.22" apply false
     id("org.springframework.boot") version "3.2.3" apply false
     id("io.spring.dependency-management") version "1.1.4" apply false
+    id("org.jlleitschuh.gradle.ktlint") version "12.1.0"
 }
 
 // Versions
 val kotlinVersion = "1.9.22"
 val springBootVersion = "3.2.3"
+val camelVersion = "4.4.0"
 val kafkaVersion = "3.6.1"
 val coroutinesVersion = "1.7.3"
 val jacksonVersion = "2.16.1"
 val kotestVersion = "5.8.1"
 val mockkVersion = "1.13.9"
+val testcontainersVersion = "1.19.7"
+val springMockkVersion = "4.0.2"
+
+extra["camelVersion"] = camelVersion
+
+// Expose for subprojects (accessed via `val x: String by rootProject.extra`)
+extra["testcontainersVersion"] = testcontainersVersion
+extra["springMockkVersion"] = springMockkVersion
 
 allprojects {
     group = "com.transformplatform"
@@ -29,10 +40,26 @@ allprojects {
 subprojects {
     apply(plugin = "org.jetbrains.kotlin.jvm")
     apply(plugin = "io.spring.dependency-management")
+    apply(plugin = "org.jlleitschuh.gradle.ktlint")
+
+    ktlint {
+        version.set("1.2.1")
+        android.set(false)
+        reporters {
+            reporter(ReporterType.PLAIN)
+        }
+        filter {
+            exclude("**/generated/**")
+            exclude("**/*.kts")
+        }
+    }
 
     configure<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension> {
         imports {
             mavenBom("org.springframework.boot:spring-boot-dependencies:$springBootVersion")
+            // Camel BOM must be in the root so every subproject (including platform-api)
+            // can resolve camel-* versions when building the full runtime classpath.
+            mavenBom("org.apache.camel.springboot:camel-spring-boot-bom:$camelVersion")
         }
     }
 
@@ -83,7 +110,7 @@ subprojects {
     }
 
     tasks.withType<Test> {
-        useJUnitPlatform()   // Kotest runner hooks into JUnit 5 platform
+        useJUnitPlatform() // Kotest runner hooks into JUnit 5 platform
         // Show test output per spec
         testLogging {
             events("passed", "skipped", "failed")

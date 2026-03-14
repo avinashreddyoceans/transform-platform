@@ -17,18 +17,13 @@ private val log = KotlinLogging.logger {}
 @Service
 class TransformService(
     private val specService: SpecService,
-    private val pipeline: TransformationPipeline
+    private val pipeline: TransformationPipeline,
 ) {
 
     // In-memory status store — replace with Redis/DB in production
     private val statusStore = mutableMapOf<String, TransformResponse>()
 
-    suspend fun fileToEvents(
-        file: MultipartFile,
-        specId: String,
-        kafkaTopic: String,
-        skipInvalidRecords: Boolean
-    ): TransformResponse {
+    suspend fun fileToEvents(file: MultipartFile, specId: String, kafkaTopic: String, skipInvalidRecords: Boolean): TransformResponse {
         val spec = specService.loadSpec(specId)
         val correlationId = UUID.randomUUID().toString()
 
@@ -39,11 +34,11 @@ class TransformService(
                 fileName = file.originalFilename ?: "unknown",
                 destination = PipelineDestination(
                     type = DestinationType.KAFKA_TOPIC,
-                    kafkaTopic = kafkaTopic
+                    kafkaTopic = kafkaTopic,
                 ),
                 skipInvalidRecords = skipInvalidRecords,
-                correlationId = correlationId
-            )
+                correlationId = correlationId,
+            ),
         )
 
         return TransformResponse(
@@ -58,7 +53,7 @@ class TransformService(
             durationMs = result.durationMs,
             errors = result.errors.map {
                 ErrorDetail(it.sequenceNumber, it.field, it.message, it.severity)
-            }
+            },
         ).also { statusStore[correlationId] = it }
     }
 
@@ -70,11 +65,10 @@ class TransformService(
             correlationId = correlationId,
             status = "SCHEDULED",
             specId = request.specId,
-            message = "Transform scheduled. Use correlationId to check status."
+            message = "Transform scheduled. Use correlationId to check status.",
         ).also { statusStore[correlationId] = it }
     }
 
-    fun getStatus(correlationId: String): TransformResponse =
-        statusStore[correlationId]
-            ?: TransformResponse(correlationId = correlationId, status = "NOT_FOUND", specId = "")
+    fun getStatus(correlationId: String): TransformResponse = statusStore[correlationId]
+        ?: TransformResponse(correlationId = correlationId, status = "NOT_FOUND", specId = "")
 }

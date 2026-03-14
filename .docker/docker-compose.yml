@@ -9,6 +9,7 @@ version: '3.9'
 # Ports:
 #   Postgres       → 5432
 #   Kafka          → 9092  |  Kafka UI  → 8090
+#   MinIO          → 9000 (API / SDK), 9001 (console UI)
 #   OTel Collector → 4317 (gRPC), 4318 (HTTP), 8889 (metrics)
 #   Jaeger         → 16686 (UI)
 #   Prometheus     → 9090
@@ -82,6 +83,27 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
     restart: unless-stopped
 
+  # ── Object Storage ────────────────────────────────────────────────────────
+
+  minio:
+    image: minio/minio:RELEASE.2024-04-18T19-09-19Z
+    container_name: transform-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"   # S3-compatible API (SDK / app)
+      - "9001:9001"   # MinIO Console UI
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   # ── Observability Stack ───────────────────────────────────────────────────
 
   otel-collector:
@@ -90,24 +112,23 @@ services:
     command: ["--config=/etc/otel/config.yaml"]
     volumes:
       - ./otel-collector-config.yaml:/etc/otel/config.yaml:ro
-      # Bind-mount the app log directory so the filelog receiver can tail it.
-      # The app (running on the host) writes to platform-api/logs/; this path
-      # is relative to .docker/docker-compose.yml → ../platform-api/logs
-      - ../platform-api/logs:/var/log/app:ro
+      # No log-file bind-mount needed — app pushes all signals via OTLP HTTP (:4318).
     ports:
-      - "4317:4317"   # OTLP gRPC
-      - "4318:4318"   # OTLP HTTP
+      - "4317:4317"   # OTLP gRPC  (available but not used by the app)
+      - "4318:4318"   # OTLP HTTP  (app sends traces + metrics + logs here)
       - "8889:8889"   # Prometheus metrics exporter (scraped by Prometheus)
       - "13133:13133" # Health check
     depends_on:
-      - jaeger
-      - elasticsearch
+      jaeger:
+        condition: service_started
+      elasticsearch:
+        condition: service_healthy   # wait for ES to be ready before starting pipelines
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:13133/"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
 
   jaeger:
     image: jaegertracing/all-in-one:1.56
@@ -221,6 +242,7 @@ services:
 
 volumes:
   postgres_data:
+  minio_data:
   prometheus_data:
   grafana_data:
   elasticsearch_data:

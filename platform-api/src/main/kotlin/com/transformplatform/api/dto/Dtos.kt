@@ -1,11 +1,11 @@
 package com.transformplatform.api.dto
 
-import com.transformplatform.core.spec.model.FileFormat
-import com.transformplatform.core.spec.model.FieldSpec
-import com.transformplatform.core.spec.model.ValidationRule
 import com.transformplatform.core.spec.model.CorrectionRule
+import com.transformplatform.core.spec.model.FieldSpec
+import com.transformplatform.core.spec.model.FileFormat
 import com.transformplatform.core.spec.model.OutputSpec
 import com.transformplatform.core.spec.model.Severity
+import com.transformplatform.core.spec.model.ValidationRule
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import java.time.Instant
@@ -25,7 +25,7 @@ data class CreateSpecRequest(
     val validationRules: List<ValidationRule> = emptyList(),
     val correctionRules: List<CorrectionRule> = emptyList(),
     val outputSpec: OutputSpec? = null,
-    val metadata: Map<String, String> = emptyMap()
+    val metadata: Map<String, String> = emptyMap(),
 )
 
 data class SpecResponse(
@@ -42,7 +42,7 @@ data class SpecResponse(
     val correctionRuleCount: Int,
     val createdAt: Instant,
     val updatedAt: Instant,
-    val createdBy: String
+    val createdBy: String,
 )
 
 // ─── Transform DTOs ───────────────────────────────────────────────────────────
@@ -57,14 +57,14 @@ data class TransformRequest(
     val skipInvalidRecords: Boolean = false,
     val delayMs: Long = 0,
     val cronExpression: String? = null,
-    val runOnce: Boolean = true
+    val runOnce: Boolean = true,
 )
 
 enum class SourceType {
     FILE_UPLOAD,
     SFTP,
     S3,
-    LOCAL_PATH
+    LOCAL_PATH,
 }
 
 data class TransformResponse(
@@ -79,12 +79,12 @@ data class TransformResponse(
     val durationMs: Long = 0,
     val message: String? = null,
     val errors: List<ErrorDetail> = emptyList(),
-    val processedAt: Instant = Instant.now()
+    val processedAt: Instant = Instant.now(),
 )
 
 data class ErrorDetail(
     val sequenceNumber: Long,
     val field: String?,
     val message: String,
-    val severity: Severity
+    val severity: Severity,
 )

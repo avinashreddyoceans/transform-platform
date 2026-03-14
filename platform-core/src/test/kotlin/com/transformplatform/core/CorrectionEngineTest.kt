@@ -1,6 +1,12 @@
 package com.transformplatform.core
 
-import com.transformplatform.core.spec.model.*
+import com.transformplatform.core.spec.model.CorrectionRule
+import com.transformplatform.core.spec.model.CorrectionType
+import com.transformplatform.core.spec.model.FieldSpec
+import com.transformplatform.core.spec.model.FieldType
+import com.transformplatform.core.spec.model.FileFormat
+import com.transformplatform.core.spec.model.FileSpec
+import com.transformplatform.core.spec.model.ParsedRecord
 import com.transformplatform.core.transformers.CorrectionEngine
 import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.matchers.booleans.shouldBeTrue
@@ -17,9 +23,11 @@ class CorrectionEngineTest : ShouldSpec({
     fun record(vararg fields: Pair<String, Any?>) = ParsedRecord(0L, mapOf(*fields))
 
     fun specWithRule(field: String, type: CorrectionType, value: String? = null) = FileSpec(
-        id = "corr-spec", name = "Correction Test", format = FileFormat.CSV,
+        id = "corr-spec",
+        name = "Correction Test",
+        format = FileFormat.CSV,
         fields = listOf(FieldSpec(name = field, type = FieldType.STRING, columnName = field)),
-        correctionRules = listOf(CorrectionRule("cr1", field, type, value))
+        correctionRules = listOf(CorrectionRule("cr1", field, type, value)),
     )
 
     context("String corrections") {
@@ -54,12 +62,18 @@ class CorrectionEngineTest : ShouldSpec({
     context("Default value corrections") {
 
         should("DEFAULT_IF_NULL sets value when field is null") {
-            val result = engine.applyCorrections(record("status" to null), specWithRule("status", CorrectionType.DEFAULT_IF_NULL, "PENDING"))
+            val result = engine.applyCorrections(
+                record("status" to null),
+                specWithRule("status", CorrectionType.DEFAULT_IF_NULL, "PENDING"),
+            )
             result.fields["status"] shouldBe "PENDING"
         }
 
         should("DEFAULT_IF_NULL does not overwrite existing value") {
-            val result = engine.applyCorrections(record("status" to "ACTIVE"), specWithRule("status", CorrectionType.DEFAULT_IF_NULL, "PENDING"))
+            val result = engine.applyCorrections(
+                record("status" to "ACTIVE"),
+                specWithRule("status", CorrectionType.DEFAULT_IF_NULL, "PENDING"),
+            )
             result.fields["status"] shouldBe "ACTIVE"
         }
 
@@ -85,17 +99,26 @@ class CorrectionEngineTest : ShouldSpec({
     context("Date format coercion") {
 
         should("convert MM/dd/yyyy to ISO yyyy-MM-dd") {
-            val result = engine.applyCorrections(record("txDate" to "03/15/2024"), specWithRule("txDate", CorrectionType.DATE_FORMAT_COERCE, "yyyy-MM-dd"))
+            val result = engine.applyCorrections(
+                record("txDate" to "03/15/2024"),
+                specWithRule("txDate", CorrectionType.DATE_FORMAT_COERCE, "yyyy-MM-dd"),
+            )
             result.fields["txDate"] shouldBe "2024-03-15"
         }
 
         should("convert yyyyMMdd compact format to ISO yyyy-MM-dd") {
-            val result = engine.applyCorrections(record("txDate" to "20240315"), specWithRule("txDate", CorrectionType.DATE_FORMAT_COERCE, "yyyy-MM-dd"))
+            val result = engine.applyCorrections(
+                record("txDate" to "20240315"),
+                specWithRule("txDate", CorrectionType.DATE_FORMAT_COERCE, "yyyy-MM-dd"),
+            )
             result.fields["txDate"] shouldBe "2024-03-15"
         }
 
         should("leave unrecognised date strings unchanged") {
-            val result = engine.applyCorrections(record("txDate" to "not-a-date"), specWithRule("txDate", CorrectionType.DATE_FORMAT_COERCE, "yyyy-MM-dd"))
+            val result = engine.applyCorrections(
+                record("txDate" to "not-a-date"),
+                specWithRule("txDate", CorrectionType.DATE_FORMAT_COERCE, "yyyy-MM-dd"),
+            )
             result.fields["txDate"] shouldBe "not-a-date"
         }
     }
@@ -103,7 +126,10 @@ class CorrectionEngineTest : ShouldSpec({
     context("Number format coercion") {
 
         should("strip currency symbols and commas") {
-            val result = engine.applyCorrections(record("amount" to "$1,234.56"), specWithRule("amount", CorrectionType.NUMBER_FORMAT_COERCE))
+            val result = engine.applyCorrections(
+                record("amount" to "$1,234.56"),
+                specWithRule("amount", CorrectionType.NUMBER_FORMAT_COERCE),
+            )
             result.fields["amount"] shouldBe "1234.56"
         }
     }
@@ -111,7 +137,10 @@ class CorrectionEngineTest : ShouldSpec({
     context("Regex replace") {
 
         should("apply regex replacement using -> separator") {
-            val result = engine.applyCorrections(record("phone" to "123-456-7890"), specWithRule("phone", CorrectionType.REGEX_REPLACE, "[^0-9] -> "))
+            val result = engine.applyCorrections(
+                record("phone" to "123-456-7890"),
+                specWithRule("phone", CorrectionType.REGEX_REPLACE, "[^0-9] -> "),
+            )
             result.fields["phone"] shouldBe "1234567890"
         }
     }
@@ -133,12 +162,14 @@ class CorrectionEngineTest : ShouldSpec({
 
         should("apply multiple correction rules in applyOrder sequence") {
             val spec = FileSpec(
-                id = "multi-corr", name = "Multi", format = FileFormat.CSV,
+                id = "multi-corr",
+                name = "Multi",
+                format = FileFormat.CSV,
                 fields = listOf(FieldSpec(name = "name", type = FieldType.STRING, columnName = "name")),
                 correctionRules = listOf(
-                    CorrectionRule("c1", "name", CorrectionType.TRIM,      applyOrder = 1),
-                    CorrectionRule("c2", "name", CorrectionType.UPPERCASE, applyOrder = 2)
-                )
+                    CorrectionRule("c1", "name", CorrectionType.TRIM, applyOrder = 1),
+                    CorrectionRule("c2", "name", CorrectionType.UPPERCASE, applyOrder = 2),
+                ),
             )
             val result = engine.applyCorrections(record("name" to "  alice  "), spec)
             result.fields["name"] shouldBe "ALICE"

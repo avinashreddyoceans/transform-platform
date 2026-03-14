@@ -9,7 +9,15 @@ import jakarta.validation.Valid
 import mu.KotlinLogging
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.*
+import org.springframework.web.bind.annotation.DeleteMapping
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.bind.annotation.RestController
 
 private val log = KotlinLogging.logger {}
 
@@ -31,7 +39,7 @@ class SpecController(private val specService: SpecService) {
     fun listSpecs(
         @RequestParam(required = false) format: String?,
         @RequestParam(defaultValue = "0") page: Int,
-        @RequestParam(defaultValue = "20") size: Int
+        @RequestParam(defaultValue = "20") size: Int,
     ): ResponseEntity<List<SpecResponse>> {
         return ResponseEntity.ok(specService.listSpecs(format, page, size))
     }
@@ -44,10 +52,7 @@ class SpecController(private val specService: SpecService) {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update an existing spec")
-    fun updateSpec(
-        @PathVariable id: String,
-        @Valid @RequestBody request: CreateSpecRequest
-    ): ResponseEntity<SpecResponse> {
+    fun updateSpec(@PathVariable id: String, @Valid @RequestBody request: CreateSpecRequest): ResponseEntity<SpecResponse> {
         return ResponseEntity.ok(specService.updateSpec(id, request))
     }
 

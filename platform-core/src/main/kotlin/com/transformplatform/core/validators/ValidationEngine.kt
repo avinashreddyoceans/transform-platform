@@ -1,6 +1,12 @@
 package com.transformplatform.core.validators
 
-import com.transformplatform.core.spec.model.*
+import com.transformplatform.core.spec.model.FieldSpec
+import com.transformplatform.core.spec.model.FileSpec
+import com.transformplatform.core.spec.model.ParseError
+import com.transformplatform.core.spec.model.ParsedRecord
+import com.transformplatform.core.spec.model.RuleType
+import com.transformplatform.core.spec.model.Severity
+import com.transformplatform.core.spec.model.ValidationRule
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
 
@@ -13,10 +19,11 @@ class ValidationEngine {
         val afterRules = spec.validationRules.fold(record) { acc, rule ->
             checkRule(rule, acc.getFieldAsString(rule.field), acc)
                 ?.let { violation ->
-                    if (rule.severity == Severity.WARNING || rule.severity == Severity.INFO)
+                    if (rule.severity == Severity.WARNING || rule.severity == Severity.INFO) {
                         acc.withWarning(violation)
-                    else
+                    } else {
                         acc.withError(violation)
+                    }
                 } ?: acc
         }
         return spec.fields.fold(afterRules) { acc, fieldSpec ->
@@ -57,54 +64,71 @@ class ValidationEngine {
             RuleType.CROSS_FIELD -> evaluateCrossField(rule, record)
         }
 
-        return if (violated) ParseError(
-            field = rule.field,
-            message = rule.message,
-            severity = rule.severity,
-            rawValue = value,
-            ruleId = rule.ruleId
-        ) else null
+        return if (violated) {
+            ParseError(
+                field = rule.field,
+                message = rule.message,
+                severity = rule.severity,
+                rawValue = value,
+                ruleId = rule.ruleId,
+            )
+        } else {
+            null
+        }
     }
 
     private fun fieldSpecErrors(fieldSpec: FieldSpec, value: String?): List<ParseError> = buildList {
         fieldSpec.validationRegex?.let { regex ->
-            if (value != null && !Regex(regex).matches(value))
-                add(ParseError(
-                    field = fieldSpec.name,
-                    message = "Field '${fieldSpec.name}' value '${maskedValue(value, fieldSpec)}' does not match required pattern",
-                    severity = Severity.ERROR,
-                    rawValue = maskedRaw(value, fieldSpec)
-                ))
+            if (value != null && !Regex(regex).matches(value)) {
+                add(
+                    ParseError(
+                        field = fieldSpec.name,
+                        message = "Field '${fieldSpec.name}' value '${maskedValue(value, fieldSpec)}' does not match required pattern",
+                        severity = Severity.ERROR,
+                        rawValue = maskedRaw(value, fieldSpec),
+                    ),
+                )
+            }
         }
         fieldSpec.minLength?.let { min ->
-            if (value != null && value.length < min)
-                add(ParseError(
-                    field = fieldSpec.name,
-                    message = "Field '${fieldSpec.name}' length ${value.length} is below minimum $min",
-                    severity = Severity.ERROR
-                ))
+            if (value != null && value.length < min) {
+                add(
+                    ParseError(
+                        field = fieldSpec.name,
+                        message = "Field '${fieldSpec.name}' length ${value.length} is below minimum $min",
+                        severity = Severity.ERROR,
+                    ),
+                )
+            }
         }
         fieldSpec.maxLength?.let { max ->
-            if (value != null && value.length > max)
-                add(ParseError(
-                    field = fieldSpec.name,
-                    message = "Field '${fieldSpec.name}' length ${value.length} exceeds maximum $max",
-                    severity = Severity.ERROR
-                ))
+            if (value != null && value.length > max) {
+                add(
+                    ParseError(
+                        field = fieldSpec.name,
+                        message = "Field '${fieldSpec.name}' length ${value.length} exceeds maximum $max",
+                        severity = Severity.ERROR,
+                    ),
+                )
+            }
         }
-        if (fieldSpec.allowedValues.isNotEmpty() && value != null && value !in fieldSpec.allowedValues)
-            add(ParseError(
-                field = fieldSpec.name,
-                message = "Field '${fieldSpec.name}' value '${maskedValue(value, fieldSpec)}' not in allowed values: ${fieldSpec.allowedValues}",
-                severity = Severity.ERROR
-            ))
+        if (fieldSpec.allowedValues.isNotEmpty() && value != null && value !in fieldSpec.allowedValues) {
+            add(
+                ParseError(
+                    field = fieldSpec.name,
+                    message = "Field '${fieldSpec.name}' value '${maskedValue(
+                        value,
+                        fieldSpec,
+                    )}' not in allowed values: ${fieldSpec.allowedValues}",
+                    severity = Severity.ERROR,
+                ),
+            )
+        }
     }
 
-    private fun maskedValue(value: String, fieldSpec: FieldSpec) =
-        if (fieldSpec.sensitive) "***" else value
+    private fun maskedValue(value: String, fieldSpec: FieldSpec) = if (fieldSpec.sensitive) "***" else value
 
-    private fun maskedRaw(value: String?, fieldSpec: FieldSpec) =
-        if (fieldSpec.sensitive) null else value
+    private fun maskedRaw(value: String?, fieldSpec: FieldSpec) = if (fieldSpec.sensitive) null else value
 
     private fun evaluateSpel(expression: String?, value: String?, record: ParsedRecord): Boolean {
         // TODO: Phase 2 — integrate Spring Expression Language for complex rules

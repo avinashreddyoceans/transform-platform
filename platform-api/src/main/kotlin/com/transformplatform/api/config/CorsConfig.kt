@@ -21,7 +21,6 @@ import org.springframework.web.filter.CorsFilter
  * Only the HTTP methods actually used by the controllers are listed.
  **/
 
-
 @Configuration
 class CorsConfig {
 

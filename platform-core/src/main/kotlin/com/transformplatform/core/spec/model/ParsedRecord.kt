@@ -10,13 +10,13 @@ import java.time.Instant
 data class ParsedRecord(
     val sequenceNumber: Long,
     val fields: Map<String, Any?>,
-    val rawContent: String? = null,           // original raw line/element
+    val rawContent: String? = null, // original raw line/element
     val errors: List<ParseError> = emptyList(),
     val warnings: List<ParseError> = emptyList(),
     val corrected: Boolean = false,
     val corrections: List<AppliedCorrection> = emptyList(),
     val metadata: Map<String, String> = emptyMap(),
-    val processedAt: Instant = Instant.now()
+    val processedAt: Instant = Instant.now(),
 ) {
     val isValid: Boolean get() = errors.isEmpty()
     val hasFatalErrors: Boolean get() = errors.any { it.severity == Severity.FATAL }
@@ -32,7 +32,7 @@ data class ParsedRecord(
         return copy(
             fields = updatedFields,
             corrected = true,
-            corrections = corrections + correction
+            corrections = corrections + correction,
         )
     }
 
@@ -46,14 +46,14 @@ data class ParseError(
     val message: String,
     val severity: Severity,
     val rawValue: String? = null,
-    val ruleId: String? = null
+    val ruleId: String? = null,
 )
 
 data class AppliedCorrection(
     val field: String,
     val originalValue: String?,
     val correctedValue: String?,
-    val correctionType: CorrectionType
+    val correctionType: CorrectionType,
 )
 
 /**
@@ -70,7 +70,7 @@ data class ProcessingResult(
     val startedAt: Instant,
     val completedAt: Instant,
     val status: ProcessingStatus,
-    val errors: List<ProcessingError> = emptyList()
+    val errors: List<ProcessingError> = emptyList(),
 ) {
     val durationMs: Long get() = completedAt.toEpochMilli() - startedAt.toEpochMilli()
     val successRate: Double get() = if (totalRecords > 0) successfulRecords.toDouble() / totalRecords else 0.0
@@ -81,12 +81,12 @@ enum class ProcessingStatus {
     COMPLETED_WITH_WARNINGS,
     COMPLETED_WITH_ERRORS,
     FAILED,
-    PARTIAL
+    PARTIAL,
 }
 
 data class ProcessingError(
     val sequenceNumber: Long,
     val field: String?,
     val message: String,
-    val severity: Severity
+    val severity: Severity,
 )

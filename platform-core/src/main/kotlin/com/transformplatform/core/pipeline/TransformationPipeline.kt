@@ -1,11 +1,17 @@
 package com.transformplatform.core.pipeline
 
-import com.transformplatform.core.spec.model.*
+import com.transformplatform.core.spec.model.FileSpec
+import com.transformplatform.core.spec.model.OutputSpec
+import com.transformplatform.core.spec.model.ProcessingError
+import com.transformplatform.core.spec.model.ProcessingResult
+import com.transformplatform.core.spec.model.ProcessingStatus
 import com.transformplatform.core.spec.registry.ParserRegistry
 import com.transformplatform.core.transformers.CorrectionEngine
 import com.transformplatform.core.validators.ValidationEngine
 import com.transformplatform.core.writers.RecordWriter
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import java.io.InputStream
@@ -18,7 +24,7 @@ class TransformationPipeline(
     private val parserRegistry: ParserRegistry,
     private val correctionEngine: CorrectionEngine,
     private val validationEngine: ValidationEngine,
-    private val writers: List<RecordWriter>
+    private val writers: List<RecordWriter>,
 ) {
 
     suspend fun execute(request: PipelineRequest): ProcessingResult {
@@ -67,18 +73,23 @@ class TransformationPipeline(
             determineStatus(failedRecords, successfulRecords, warningRecords)
         }.fold(
             onSuccess = { status ->
-                buildResult(request, startedAt, totalRecords, successfulRecords, failedRecords, correctedRecords, warningRecords, processingErrors, status)
+                buildResult(
+                    request, startedAt, totalRecords, successfulRecords, failedRecords, correctedRecords, warningRecords,
+                    processingErrors, status,
+                )
             },
             onFailure = { e ->
                 log.error(e) { "Pipeline execution failed for spec=${request.spec.id}" }
-                buildResult(request, startedAt, totalRecords, successfulRecords, failedRecords, correctedRecords, warningRecords, processingErrors, ProcessingStatus.FAILED)
-            }
+                buildResult(
+                    request, startedAt, totalRecords, successfulRecords, failedRecords, correctedRecords, warningRecords,
+                    processingErrors, ProcessingStatus.FAILED,
+                )
+            },
         ).also { log.info { "Pipeline complete: $it" } }
     }
 
-    private fun resolveWriter(destination: PipelineDestination): RecordWriter =
-        writers.firstOrNull { it.supports(destination.type) }
-            ?: throw IllegalArgumentException("No writer found for destination type: ${destination.type}")
+    private fun resolveWriter(destination: PipelineDestination): RecordWriter = writers.firstOrNull { it.supports(destination.type) }
+        ?: throw IllegalArgumentException("No writer found for destination type: ${destination.type}")
 
     private fun determineStatus(failed: Long, successful: Long, warnings: Long): ProcessingStatus = when {
         failed > 0 && successful > 0 -> ProcessingStatus.COMPLETED_WITH_ERRORS
@@ -96,7 +107,7 @@ class TransformationPipeline(
         correctedRecords: Long,
         warningRecords: Long,
         errors: List<ProcessingError>,
-        status: ProcessingStatus
+        status: ProcessingStatus,
     ) = ProcessingResult(
         specId = request.spec.id,
         fileName = request.fileName,
@@ -108,7 +119,7 @@ class TransformationPipeline(
         startedAt = startedAt,
         completedAt = Instant.now(),
         status = status,
-        errors = errors
+        errors = errors,
     )
 }
 
@@ -119,7 +130,7 @@ data class PipelineRequest(
     val destination: PipelineDestination,
     val skipInvalidRecords: Boolean = false,
     val delayMs: Long = 0,
-    val correlationId: String = java.util.UUID.randomUUID().toString()
+    val correlationId: String = java.util.UUID.randomUUID().toString(),
 )
 
 data class PipelineDestination(
@@ -127,12 +138,12 @@ data class PipelineDestination(
     val kafkaTopic: String? = null,
     val outputFilePath: String? = null,
     val webhookUrl: String? = null,
-    val outputSpec: OutputSpec? = null
+    val outputSpec: OutputSpec? = null,
 )
 
 enum class DestinationType {
     KAFKA_TOPIC,
     OUTPUT_FILE,
     WEBHOOK,
-    DATABASE
+    DATABASE,
 }

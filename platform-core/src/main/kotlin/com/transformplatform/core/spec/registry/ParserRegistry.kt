@@ -34,12 +34,11 @@ class ParserRegistry(private val parsers: List<FileParser>) {
         return parsers.firstOrNull { it.supports(format) }
             ?: throw UnsupportedFormatException(
                 "No parser found for format: $format. " +
-                    "Available parsers: ${parsers.map { it.parserName }}"
+                    "Available parsers: ${parsers.map { it.parserName }}",
             )
     }
 
-    fun supportedFormats(): List<FileFormat> =
-        FileFormat.entries.filter { format -> parsers.any { it.supports(format) } }
+    fun supportedFormats(): List<FileFormat> = FileFormat.entries.filter { format -> parsers.any { it.supports(format) } }
 }
 
 class UnsupportedFormatException(message: String) : RuntimeException(message)

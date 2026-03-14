@@ -1,7 +1,12 @@
 package com.transformplatform.core.parsers.impl
 
 import com.transformplatform.core.parsers.FileParser
-import com.transformplatform.core.spec.model.*
+import com.transformplatform.core.spec.model.FieldSpec
+import com.transformplatform.core.spec.model.FileFormat
+import com.transformplatform.core.spec.model.FileSpec
+import com.transformplatform.core.spec.model.ParseError
+import com.transformplatform.core.spec.model.ParsedRecord
+import com.transformplatform.core.spec.model.Severity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import mu.KotlinLogging
@@ -68,23 +73,20 @@ class XmlFileParser : FileParser {
         log.info { "XML parsing complete. Total records: ${nodeList.length}" }
     }
 
-    private fun parseElement(
-        element: Element,
-        spec: FileSpec,
-        sequenceNumber: Long,
-        xPath: javax.xml.xpath.XPath
-    ): ParsedRecord {
+    private fun parseElement(element: Element, spec: FileSpec, sequenceNumber: Long, xPath: javax.xml.xpath.XPath): ParsedRecord {
         val fields = mutableMapOf<String, Any?>()
         val errors = mutableListOf<ParseError>()
 
         spec.fields.forEach { fieldSpec ->
             val rawValue = extractValue(element, fieldSpec, xPath)
             if (rawValue == null && fieldSpec.required) {
-                errors.add(ParseError(
-                    field = fieldSpec.name,
-                    message = "Required XML field '${fieldSpec.name}' not found at path '${fieldSpec.path}'",
-                    severity = Severity.ERROR
-                ))
+                errors.add(
+                    ParseError(
+                        field = fieldSpec.name,
+                        message = "Required XML field '${fieldSpec.name}' not found at path '${fieldSpec.path}'",
+                        severity = Severity.ERROR,
+                    ),
+                )
                 fields[fieldSpec.name] = fieldSpec.defaultValue
             } else {
                 fields[fieldSpec.name] = rawValue ?: fieldSpec.defaultValue
@@ -94,19 +96,24 @@ class XmlFileParser : FileParser {
         return ParsedRecord(
             sequenceNumber = sequenceNumber,
             fields = fields,
-            errors = errors
+            errors = errors,
         )
     }
 
-    private fun extractValue(element: Element, fieldSpec: FieldSpec, xPath: javax.xml.xpath.XPath): String? =
-        runCatching {
-            when {
-                fieldSpec.xmlAttribute != null -> element.getAttribute(fieldSpec.xmlAttribute)?.takeIf { it.isNotBlank() }
-                fieldSpec.path != null -> (xPath.evaluate(fieldSpec.path, element, XPathConstants.STRING) as String).takeIf { it.isNotBlank() }
-                else -> null
-            }
-        }.getOrElse {
-            log.warn { "Failed to extract XML field '${fieldSpec.name}': ${it.message}" }
-            null
+    private fun extractValue(element: Element, fieldSpec: FieldSpec, xPath: javax.xml.xpath.XPath): String? = runCatching {
+        when {
+            fieldSpec.xmlAttribute != null -> element.getAttribute(fieldSpec.xmlAttribute)?.takeIf { it.isNotBlank() }
+            fieldSpec.path != null -> (
+                xPath.evaluate(
+                    fieldSpec.path,
+                    element,
+                    XPathConstants.STRING,
+                ) as String
+                ).takeIf { it.isNotBlank() }
+            else -> null
         }
+    }.getOrElse {
+        log.warn { "Failed to extract XML field '${fieldSpec.name}': ${it.message}" }
+        null
+    }
 }

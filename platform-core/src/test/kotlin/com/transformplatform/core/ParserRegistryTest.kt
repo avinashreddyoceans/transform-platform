@@ -18,7 +18,7 @@ import io.kotest.matchers.string.shouldContain
 class ParserRegistryTest : FunSpec({
 
     val registry = ParserRegistry(
-        listOf(CsvFileParser(), FixedWidthFileParser(), XmlFileParser())
+        listOf(CsvFileParser(), FixedWidthFileParser(), XmlFileParser()),
     )
 
     test("resolves CSV parser for CSV format") {

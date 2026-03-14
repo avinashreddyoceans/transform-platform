@@ -13,7 +13,7 @@ private val log = KotlinLogging.logger {}
 @Component
 class KafkaRecordWriter(
     private val kafkaTemplate: KafkaTemplate<String, String>,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
 ) : RecordWriter {
 
     override val writerName = "KAFKA_WRITER"
@@ -31,7 +31,7 @@ class KafkaRecordWriter(
             fileName = request.fileName,
             fields = record.fields,
             corrected = record.corrected,
-            metadata = record.metadata
+            metadata = record.metadata,
         )
 
         val payload = objectMapper.writeValueAsString(event)
@@ -54,5 +54,5 @@ data class TransformEvent(
     val fields: Map<String, Any?>,
     val corrected: Boolean,
     val metadata: Map<String, String>,
-    val eventTimestamp: Long = System.currentTimeMillis()
+    val eventTimestamp: Long = System.currentTimeMillis(),
 )

@@ -1,11 +1,13 @@
 # OpenTelemetry Collector configuration for Transform Platform local dev
 #
 # Signal routing:
-#   Traces  → Jaeger  (gRPC :14250)
-#   Metrics → Prometheus (exposed on :8889 for scraping)
-#   Logs    → Elasticsearch (:9200)
+#   Traces  → Jaeger         (gRPC :14250)
+#   Metrics → Prometheus     (pull, exposed on :8889)
+#   Logs    → Elasticsearch  (:9200)
 #
-# The app sends all signals via OTLP to this collector on :4317 (gRPC) / :4318 (HTTP).
+# The app pushes ALL signals (traces, metrics, logs) via OTLP HTTP/protobuf to :4318.
+# Driven entirely by otel.* properties in application.yml — no code config required.
+# The Log4j2 OpenTelemetryAppender is installed automatically by the OTel Spring Boot starter.
 
 receivers:
   otlp:
@@ -16,46 +18,6 @@ receivers:
         endpoint: 0.0.0.0:4318
         cors:
           allowed_origins: ["*"]
-
-  # Tail the app's JSON log file written by Logback/LogstashEncoder.
-  # The app runs on the host and writes to platform-api/logs/; that directory
-  # is bind-mounted into this container at /var/log/app (see docker-compose.yml).
-  filelog:
-    include: [/var/log/app/transform-platform.log]
-    start_at: beginning
-    include_file_path: false
-    operators:
-      # Parse each line as JSON
-      - type: json_parser
-        parse_from: body
-        timestamp:
-          parse_from: attributes.timestamp
-          layout_type: gotime
-          layout: "2006-01-02T15:04:05.000000-07:00"
-        severity:
-          parse_from: attributes.level
-          preset: default   # maps INFO/WARN/ERROR/DEBUG case-insensitively
-      # Promote the message text to the log body
-      - type: move
-        from: attributes.message
-        to: body
-      # Carry useful MDC fields as standard OTel attributes
-      - type: move
-        from: attributes.traceId
-        to: attributes["traceId"]
-        if: 'attributes["traceId"] != nil'
-      - type: move
-        from: attributes.correlationId
-        to: attributes["correlationId"]
-        if: 'attributes["correlationId"] != nil'
-      - type: move
-        from: attributes.logger_name
-        to: attributes["logger.name"]
-        if: 'attributes["logger_name"] != nil'
-      - type: move
-        from: attributes.thread_name
-        to: attributes["thread.name"]
-        if: 'attributes["thread_name"] != nil'
 
 processors:
   # Batch telemetry for efficiency — reduces network round-trips
@@ -129,6 +91,6 @@ service:
       exporters:  [prometheus]
 
     logs:
-      receivers:  [filelog]           # tails platform-api/logs/transform-platform.log
-      processors: [resource, batch]   # no sanitize needed — filelog doesn't capture auth headers
-      exporters:  [elasticsearch]
+      receivers:  [otlp]                          # pushed via HTTP/protobuf by Log4j2 OTel appender
+      processors: [resource, attributes/sanitize, batch]
+      exporters:  [elasticsearch, debug]

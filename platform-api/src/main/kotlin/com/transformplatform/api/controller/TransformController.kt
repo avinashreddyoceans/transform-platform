@@ -8,7 +8,13 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import mu.KotlinLogging
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.*
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestPart
+import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
 
 private val log = KotlinLogging.logger {}
@@ -21,13 +27,13 @@ class TransformController(private val transformService: TransformService) {
     @PostMapping("/file-to-events", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @Operation(
         summary = "Transform file → events",
-        description = "Parse a file using the given spec and publish each record as a Kafka event"
+        description = "Parse a file using the given spec and publish each record as a Kafka event",
     )
     suspend fun fileToEvents(
         @RequestPart("file") file: MultipartFile,
         @RequestPart("specId") specId: String,
         @RequestPart("kafkaTopic") kafkaTopic: String,
-        @RequestPart(value = "skipInvalidRecords", required = false) skipInvalid: String?
+        @RequestPart(value = "skipInvalidRecords", required = false) skipInvalid: String?,
     ): ResponseEntity<TransformResponse> {
         log.info { "file-to-events: file=${file.originalFilename}, spec=$specId, topic=$kafkaTopic" }
         return ResponseEntity.ok(
@@ -35,15 +41,15 @@ class TransformController(private val transformService: TransformService) {
                 file = file,
                 specId = specId,
                 kafkaTopic = kafkaTopic,
-                skipInvalidRecords = skipInvalid?.toBooleanStrictOrNull() ?: false
-            )
+                skipInvalidRecords = skipInvalid?.toBooleanStrictOrNull() ?: false,
+            ),
         )
     }
 
     @PostMapping("/schedule")
     @Operation(
         summary = "Schedule a transformation",
-        description = "Schedule a file transformation to run immediately, after a delay, or on a cron schedule"
+        description = "Schedule a file transformation to run immediately, after a delay, or on a cron schedule",
     )
     fun scheduleTransform(@RequestBody request: TransformRequest): ResponseEntity<TransformResponse> {
         log.info { "Scheduling transform: specId=${request.specId}, delay=${request.delayMs}ms" }

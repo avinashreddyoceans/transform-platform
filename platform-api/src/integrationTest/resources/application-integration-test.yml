@@ -1,0 +1,49 @@
+# ── Integration (E2E) test profile ────────────────────────────────────────────
+# Applied on top of application.yml when @ActiveProfiles("integration-test") is set.
+# Testcontainers overrides datasource + MinIO properties via @DynamicPropertySource.
+
+spring:
+  # Disable Kafka auto-configuration — not relevant to integration-service E2E tests
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
+  jpa:
+    hibernate:
+      # 'validate' would re-validate schema on each test boot — use 'none' since
+      # Flyway already manages the schema and schema validation slows CI
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration/current
+    # Flyway 10+ disables clean by default — must explicitly re-enable it.
+    # Without clean-disabled: false, clean-on-validation-error silently fails.
+    clean-disabled: false
+    # Clean + migrate on each test run so we always start fresh
+    clean-on-validation-error: true
+
+transform-platform:
+  security:
+    # Fixed test key — 64 hex chars = 256-bit key, satisfies Spring Security crypto
+    credential-key: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    jwt-secret: "test-jwt-secret-which-is-long-enough-for-hs256-algorithm-minimum"
+    jwt-expiry-hours: 1
+
+# ── Camel ──────────────────────────────────────────────────────────────────────
+# DynamicRouteManager is @MockkBean in tests, so Camel won't try to register
+# real SFTP/S3 routes. We still disable auto-startup as a safety net.
+camel:
+  springboot:
+    auto-startup: false
+    main-run-controller: false
+
+logging:
+  level:
+    com.transformplatform: DEBUG
+    org.flywaydb: INFO
+    org.testcontainers: INFO

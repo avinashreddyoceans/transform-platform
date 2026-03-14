@@ -1,7 +1,10 @@
 package com.transformplatform.core
 
 import com.transformplatform.core.parsers.impl.CsvFileParser
-import com.transformplatform.core.spec.model.*
+import com.transformplatform.core.spec.model.FieldSpec
+import com.transformplatform.core.spec.model.FieldType
+import com.transformplatform.core.spec.model.FileFormat
+import com.transformplatform.core.spec.model.FileSpec
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.booleans.shouldBeFalse
@@ -22,11 +25,11 @@ class CsvFileParserTest : DescribeSpec({
         hasHeader = true,
         delimiter = ",",
         fields = listOf(
-            FieldSpec(name = "id",     type = FieldType.INTEGER, columnName = "id"),
-            FieldSpec(name = "name",   type = FieldType.STRING,  columnName = "name"),
+            FieldSpec(name = "id", type = FieldType.INTEGER, columnName = "id"),
+            FieldSpec(name = "name", type = FieldType.STRING, columnName = "name"),
             FieldSpec(name = "amount", type = FieldType.DECIMAL, columnName = "amount"),
-            FieldSpec(name = "email",  type = FieldType.STRING,  columnName = "email", required = false)
-        )
+            FieldSpec(name = "email", type = FieldType.STRING, columnName = "email", required = false),
+        ),
     )
 
     describe("CSV parsing — happy paths") {
@@ -73,7 +76,7 @@ class CsvFileParserTest : DescribeSpec({
         }
 
         it("treats optional missing field as null without error") {
-            val csv = "id,name,amount\n1,Alice,10.0"  // email column absent
+            val csv = "id,name,amount\n1,Alice,10.0" // email column absent
 
             val records = parser.parse(csv.byteInputStream(), baseSpec).toList()
 
@@ -131,7 +134,7 @@ class CsvFileParserTest : DescribeSpec({
 
             val records = parser.parse(csv.byteInputStream(), baseSpec).toList()
 
-            records[0].errors.size shouldBe 3   // id type, name required, amount type
+            records[0].errors.size shouldBe 3 // id type, name required, amount type
         }
     }
 
@@ -153,7 +156,7 @@ class CsvFileParserTest : DescribeSpec({
 
         it("rejects a spec where fields have neither columnIndex nor columnName") {
             val badSpec = baseSpec.copy(
-                fields = listOf(FieldSpec(name = "id", type = FieldType.STRING)) // missing column info
+                fields = listOf(FieldSpec(name = "id", type = FieldType.STRING)), // missing column info
             )
             shouldThrow<IllegalArgumentException> {
                 parser.validateSpec(badSpec)

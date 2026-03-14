@@ -20,7 +20,20 @@ spring:
 
   flyway:
     enabled: true
-    locations: classpath:db/migration
+    # 'current/' keeps the superseded V1 tables (V1__create_integration_tables.sql)
+    # isolated — only the active redesigned schema is applied.
+    locations: classpath:db/migration/current
+    # ── Dev safeguard: auto-reset on schema mismatch ──────────────────────────
+    # Flyway 10+ (Spring Boot 3.2+) disables 'clean' by default to prevent
+    # accidental data loss. We re-enable it here for dev so that if the Docker
+    # volume contains a stale schema (e.g. old UUID-based V1+V2 from a previous
+    # run), Flyway drops and re-creates everything instead of refusing to start.
+    #
+    # ⚠️  Override to false in staging/production (e.g. via env var):
+    #     SPRING_FLYWAY_CLEAN_DISABLED=true
+    #     SPRING_FLYWAY_CLEAN_ON_VALIDATION_ERROR=false
+    clean-disabled: false
+    clean-on-validation-error: true
 
   kafka:
     bootstrap-servers: ${KAFKA_BROKERS:localhost:9092}
@@ -58,16 +71,53 @@ management:
   endpoint:
     health:
       show-details: always
+  # ── Common metric tags (replaces ObservabilityConfig.kt MeterRegistryCustomizer) ──
+  # Spring Boot applies these as labels on every Micrometer metric automatically.
+  metrics:
+    tags:
+      service: ${spring.application.name:transform-platform}
+      env: ${spring.profiles.active:local}
+      version: ${build.version:unknown}
   # ── Distributed Tracing ──────────────────────────────────────────────────────
   tracing:
     sampling:
       probability: 1.0   # 100% in dev — reduce to 0.05–0.1 in production
-  # ── OTel OTLP Exporter ───────────────────────────────────────────────────────
-  # Traces are pushed to the OTel Collector via OTLP HTTP.
-  # Metrics use the Prometheus pull model (/actuator/prometheus) — no OTLP push needed.
+  # ── Traces → OTel Collector (OTLP HTTP) ───────────────────────────────────
+  # References otel.exporter.otlp.traces.endpoint below so the full signal
+  # config lives in one place under the otel.* namespace.
   otlp:
     tracing:
-      endpoint: http://${OTEL_COLLECTOR_HOST:localhost}:4318/v1/traces
+      endpoint: ${otel.exporter.otlp.traces.endpoint}
+
+# ── OpenTelemetry signal configuration ───────────────────────────────────────────
+# Single place to configure all three OTel signals. Uses the same property keys as
+# the OTel Java SDK autoconfigure module for consistency with enterprise deployments.
+#
+#   Traces  → Spring Boot autoconfiguration reads management.otlp.tracing.endpoint
+#             (aliased above to otel.exporter.otlp.traces.endpoint)
+#   Logs    → OtelLoggingConfig reads otel.exporter.otlp.logs.endpoint
+#   Metrics → Prometheus pull model (/actuator/prometheus); no OTLP push needed locally
+#
+# Resource attributes are attached to every log record by OtelLoggingConfig.
+# For traces, Spring Boot sets service.name from spring.application.name automatically.
+otel:
+  resource:
+    attributes:
+      service:
+        name: ${spring.application.name:transform-platform}
+        namespace: ${spring.application.name:transform-platform}
+        instance:
+          id: ${HOSTNAME:localhost}   # replace with pod IP/name in k8s via Downward API
+        version: ${build.version:unknown}
+      deployment:
+        environment: ${spring.profiles.active:local}
+
+  exporter:
+    otlp:
+      logs:
+        endpoint: http://${OTEL_COLLECTOR_HOST:localhost}:4318/v1/logs
+      traces:
+        endpoint: http://${OTEL_COLLECTOR_HOST:localhost}:4318/v1/traces
 
 springdoc:
   api-docs:
@@ -80,15 +130,65 @@ transform-platform:
   security:
     jwt-secret: ${JWT_SECRET:change-me-in-production-use-at-least-256-bits}
     jwt-expiry-hours: 24
+    # AES-256 key for credential payload encryption.
+    # Defaults to JWT secret for local dev — use a dedicated secret in production.
+    credential-key: ${CREDENTIAL_ENCRYPTION_KEY:change-me-in-production-use-at-least-256-bits}
   pipeline:
     max-concurrent-jobs: 10
     default-skip-invalid: false
   storage:
     temp-dir: ${TEMP_DIR:/tmp/transform-platform}
     encryption-enabled: ${ENCRYPTION_ENABLED:true}
+  # ── MinIO (internal file backup store) ─────────────────────────────────────
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${MINIO_SECRET_KEY:minioadmin}
+    downloads-bucket: ${MINIO_BUCKET:transform-downloads}
+
+# ── Apache Camel ───────────────────────────────────────────────────────────────
+camel:
+  springboot:
+    # Keep Camel alive as long as the Spring context is alive
+    main-run-controller: true
+  main:
+    # DynamicRouteManager explicitly adds routes at startup — disable auto-discovery
+    routes-include-pattern: "no-op"
 
 logging:
   level:
     com.transformplatform: DEBUG
     org.springframework.kafka: INFO
     org.hibernate.SQL: INFO
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Profile: local
+# ──────────────────────────────────────────────────────────────────────────────
+# Overrides applied when SPRING_PROFILES_ACTIVE=local (IntelliJ run config /
+# local Docker run). Assumes the .docker/docker-compose.yml stack is running.
+#
+# To run WITHOUT the Docker stack (API in isolation only):
+#   add OTEL_ENABLED=false to your run config to suppress exporter noise.
+# ══════════════════════════════════════════════════════════════════════════════
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  # ── Dev convenience credentials (Spring Security auto-user) ────────────────
+  security:
+    user:
+      name: admin
+      password: secret
+
+management:
+  tracing:
+    # Set OTEL_ENABLED=false in your run config if the Docker stack is not up
+    enabled: ${OTEL_ENABLED:true}
+
+logging:
+  level:
+    # Silence OTel exporter retry/connection noise; set DEBUG for troubleshooting
+    io.opentelemetry.exporter: WARN
+    io.opentelemetry.sdk.trace: WARN
+    io.micrometer.tracing: WARN

@@ -1,6 +1,6 @@
 import { themes as prismThemes } from 'prism-react-renderer';
 import type { Config } from '@docusaurus/types';
-import type * as Preset from '@docusaurus/preset-classic';
+import type { Options, ThemeConfig } from '@docusaurus/preset-classic';
 import type { PluginOptions as OpenApiPluginOptions } from 'docusaurus-plugin-openapi-docs';
 
 // ─── Search mode ──────────────────────────────────────────────────────────────
@@ -131,7 +131,7 @@ const config: Config = {
         theme: {
           customCss: './src/css/custom.css',
         },
-      } satisfies Preset.Options,
+      } satisfies Options,
     ],
   ],
 
@@ -240,7 +240,7 @@ const config: Config = {
       darkTheme: prismThemes.dracula,
       additionalLanguages: ['kotlin', 'json', 'bash', 'yaml'],
     },
-  } satisfies Preset.ThemeConfig,
+  } satisfies ThemeConfig,
 };
 
 export default config;

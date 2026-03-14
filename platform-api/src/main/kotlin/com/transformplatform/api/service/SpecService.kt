@@ -36,7 +36,7 @@ class SpecService {
             outputSpec = request.outputSpec,
             metadata = request.metadata,
             createdAt = now,
-            updatedAt = now
+            updatedAt = now,
         )
         specStore[id] = spec
         log.info { "Created spec: id=$id, name=${spec.name}, format=${spec.format}" }
@@ -47,12 +47,11 @@ class SpecService {
 
     fun loadSpec(id: String): FileSpec = findOrThrow(id)
 
-    fun listSpecs(format: String?, page: Int, size: Int): List<SpecResponse> =
-        specStore.values
-            .filter { format == null || it.format == FileFormat.valueOf(format.uppercase()) }
-            .drop(page * size)
-            .take(size)
-            .map { it.toResponse() }
+    fun listSpecs(format: String?, page: Int, size: Int): List<SpecResponse> = specStore.values
+        .filter { format == null || it.format == FileFormat.valueOf(format.uppercase()) }
+        .drop(page * size)
+        .take(size)
+        .map { it.toResponse() }
 
     fun updateSpec(id: String, request: CreateSpecRequest): SpecResponse {
         val updated = findOrThrow(id).copy(
@@ -65,7 +64,7 @@ class SpecService {
             fields = request.fields,
             validationRules = request.validationRules,
             correctionRules = request.correctionRules,
-            updatedAt = Instant.now()
+            updatedAt = Instant.now(),
         )
         specStore[id] = updated
         return updated.toResponse()
@@ -85,12 +84,11 @@ class SpecService {
             "valid" to issues.isEmpty(),
             "issues" to issues,
             "fieldCount" to spec.fields.size,
-            "validationRuleCount" to spec.validationRules.size
+            "validationRuleCount" to spec.validationRules.size,
         )
     }
 
-    private fun findOrThrow(id: String): FileSpec =
-        specStore[id] ?: throw NoSuchElementException("Spec not found: $id")
+    private fun findOrThrow(id: String): FileSpec = specStore[id] ?: throw NoSuchElementException("Spec not found: $id")
 
     private fun FileSpec.toResponse() = SpecResponse(
         id = id,
@@ -106,6 +104,6 @@ class SpecService {
         correctionRuleCount = correctionRules.size,
         createdAt = createdAt,
         updatedAt = updatedAt,
-        createdBy = createdBy
+        createdBy = createdBy,
     )
 }

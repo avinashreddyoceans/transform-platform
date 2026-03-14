@@ -1,7 +1,13 @@
 package com.transformplatform.core.parsers.impl
 
 import com.transformplatform.core.parsers.FileParser
-import com.transformplatform.core.spec.model.*
+import com.transformplatform.core.spec.model.FieldSpec
+import com.transformplatform.core.spec.model.FieldType
+import com.transformplatform.core.spec.model.FileFormat
+import com.transformplatform.core.spec.model.FileSpec
+import com.transformplatform.core.spec.model.ParseError
+import com.transformplatform.core.spec.model.ParsedRecord
+import com.transformplatform.core.spec.model.Severity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import mu.KotlinLogging
@@ -46,7 +52,9 @@ class CsvFileParser : FileParser {
                     ?.let { parseHeader(it, delimiter) }
                     .also { log.debug { "Parsed CSV header: $it" } }
                     ?: emptyMap()
-            } else emptyMap()
+            } else {
+                emptyMap()
+            }
 
             var line = reader.readLine()
             while (line != null) {
@@ -58,17 +66,16 @@ class CsvFileParser : FileParser {
         log.info { "CSV parsing complete. Total records: $sequence" }
     }
 
-    private fun parseHeader(headerLine: String, delimiter: String): Map<String, Int> =
-        headerLine.split(delimiter)
-            .mapIndexed { index, name -> name.trim().lowercase() to index }
-            .toMap()
+    private fun parseHeader(headerLine: String, delimiter: String): Map<String, Int> = headerLine.split(delimiter)
+        .mapIndexed { index, name -> name.trim().lowercase() to index }
+        .toMap()
 
     private fun parseLine(
         line: String,
         spec: FileSpec,
         sequenceNumber: Long,
         delimiter: String,
-        headerIndexMap: Map<String, Int>
+        headerIndexMap: Map<String, Int>,
     ): ParsedRecord {
         val values = splitRespectingQuotes(line, delimiter)
         val fields = mutableMapOf<String, Any?>()
@@ -77,12 +84,15 @@ class CsvFileParser : FileParser {
         spec.fields.forEach { fieldSpec ->
             val index = resolveColumnIndex(fieldSpec, headerIndexMap)
             if (index == null) {
-                if (fieldSpec.required)
-                    errors.add(ParseError(
-                        field = fieldSpec.name,
-                        message = "Column '${fieldSpec.columnName ?: fieldSpec.name}' not found in header",
-                        severity = Severity.ERROR
-                    ))
+                if (fieldSpec.required) {
+                    errors.add(
+                        ParseError(
+                            field = fieldSpec.name,
+                            message = "Column '${fieldSpec.columnName ?: fieldSpec.name}' not found in header",
+                            severity = Severity.ERROR,
+                        ),
+                    )
+                }
                 return@forEach
             }
 
@@ -122,16 +132,17 @@ class CsvFileParser : FileParser {
 
     private fun coerceValue(raw: String?, fieldSpec: FieldSpec): Pair<Any?, ParseError?> {
         if (raw.isNullOrBlank()) {
-            if (fieldSpec.required && !fieldSpec.nullable)
+            if (fieldSpec.required && !fieldSpec.nullable) {
                 return Pair(
                     fieldSpec.defaultValue,
                     ParseError(
                         field = fieldSpec.name,
                         message = "Required field '${fieldSpec.name}' is missing or empty",
                         severity = Severity.ERROR,
-                        rawValue = raw
-                    )
+                        rawValue = raw,
+                    ),
                 )
+            }
             return Pair(fieldSpec.defaultValue, null)
         }
 
@@ -151,8 +162,8 @@ class CsvFileParser : FileParser {
                     field = fieldSpec.name,
                     message = "Cannot convert '${fieldSpec.name}' value '${if (fieldSpec.sensitive) "***" else raw}' to ${fieldSpec.type}",
                     severity = Severity.ERROR,
-                    rawValue = if (fieldSpec.sensitive) null else raw
-                )
+                    rawValue = if (fieldSpec.sensitive) null else raw,
+                ),
             )
         }
     }

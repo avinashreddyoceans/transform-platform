@@ -1,7 +1,13 @@
 package com.transformplatform.core.parsers.impl
 
 import com.transformplatform.core.parsers.FileParser
-import com.transformplatform.core.spec.model.*
+import com.transformplatform.core.spec.model.FieldSpec
+import com.transformplatform.core.spec.model.FieldType
+import com.transformplatform.core.spec.model.FileFormat
+import com.transformplatform.core.spec.model.FileSpec
+import com.transformplatform.core.spec.model.ParseError
+import com.transformplatform.core.spec.model.ParsedRecord
+import com.transformplatform.core.spec.model.Severity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import mu.KotlinLogging
@@ -63,12 +69,15 @@ class FixedWidthFileParser : FileParser {
             }
 
             if (start >= line.length) {
-                if (fieldSpec.required)
-                    errors.add(ParseError(
-                        field = fieldSpec.name,
-                        message = "Line too short to extract field '${fieldSpec.name}' at position $start",
-                        severity = Severity.ERROR
-                    ))
+                if (fieldSpec.required) {
+                    errors.add(
+                        ParseError(
+                            field = fieldSpec.name,
+                            message = "Line too short to extract field '${fieldSpec.name}' at position $start",
+                            severity = Severity.ERROR,
+                        ),
+                    )
+                }
                 return@forEach
             }
 
@@ -83,11 +92,12 @@ class FixedWidthFileParser : FileParser {
 
     private fun coerceValue(raw: String, fieldSpec: FieldSpec): Pair<Any?, ParseError?> {
         if (raw.isBlank()) {
-            if ( fieldSpec.required && !fieldSpec.nullable)
+            if (fieldSpec.required && !fieldSpec.nullable) {
                 return Pair(
                     fieldSpec.defaultValue,
-                    ParseError(field = fieldSpec.name, message = "Required field '${fieldSpec.name}' is blank", severity = Severity.ERROR)
+                    ParseError(field = fieldSpec.name, message = "Required field '${fieldSpec.name}' is blank", severity = Severity.ERROR),
                 )
+            }
             return Pair(fieldSpec.defaultValue, null)
         }
 
@@ -111,10 +121,11 @@ class FixedWidthFileParser : FileParser {
                 raw,
                 ParseError(
                     field = fieldSpec.name,
-                    message = "Type conversion failed for '${fieldSpec.name}': '${if (fieldSpec.sensitive) "***" else raw}' is not ${fieldSpec.type}",
+                    message = "Type conversion failed for '${fieldSpec.name}': '${if (fieldSpec.sensitive) "***" else raw}' " +
+                        "is not ${fieldSpec.type}",
                     severity = Severity.ERROR,
-                    rawValue = if (fieldSpec.sensitive) null else raw
-                )
+                    rawValue = if (fieldSpec.sensitive) null else raw,
+                ),
             )
         }
     }

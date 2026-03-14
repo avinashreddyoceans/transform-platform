@@ -1,6 +1,11 @@
 package com.transformplatform.core
 
-import com.transformplatform.core.spec.model.*
+import com.transformplatform.core.spec.model.FileFormat
+import com.transformplatform.core.spec.model.FileSpec
+import com.transformplatform.core.spec.model.ParsedRecord
+import com.transformplatform.core.spec.model.RuleType
+import com.transformplatform.core.spec.model.Severity
+import com.transformplatform.core.spec.model.ValidationRule
 import com.transformplatform.core.validators.ValidationEngine
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.booleans.shouldBeFalse
@@ -19,7 +24,7 @@ class ValidationEngineTest : BehaviorSpec({
 
     fun record(vararg fields: Pair<String, Any?>) = ParsedRecord(
         sequenceNumber = 0L,
-        fields = mapOf(*fields)
+        fields = mapOf(*fields),
     )
 
     fun spec(vararg rules: ValidationRule) = FileSpec(
@@ -27,7 +32,7 @@ class ValidationEngineTest : BehaviorSpec({
         name = "Validation Test",
         format = FileFormat.CSV,
         fields = emptyList(),
-        validationRules = rules.toList()
+        validationRules = rules.toList(),
     )
 
     given("a NOT_NULL rule") {
@@ -80,7 +85,7 @@ class ValidationEngineTest : BehaviorSpec({
             field = "routingNumber",
             ruleType = RuleType.REGEX,
             value = "^[0-9]{9}$",
-            message = "Routing number must be exactly 9 digits"
+            message = "Routing number must be exactly 9 digits",
         )
 
         `when`("routing number is valid 9 digits") {
@@ -105,7 +110,7 @@ class ValidationEngineTest : BehaviorSpec({
             field = "status",
             ruleType = RuleType.ALLOWED_VALUES,
             value = "ACTIVE,INACTIVE,PENDING",
-            message = "Status must be ACTIVE, INACTIVE or PENDING"
+            message = "Status must be ACTIVE, INACTIVE or PENDING",
         )
 
         `when`("value is in the allowed list") {
@@ -128,7 +133,7 @@ class ValidationEngineTest : BehaviorSpec({
             ruleType = RuleType.MAX_LENGTH,
             value = "100",
             message = "Description is long",
-            severity = Severity.WARNING
+            severity = Severity.WARNING,
         )
 
         `when`("description exceeds max length") {
@@ -144,9 +149,9 @@ class ValidationEngineTest : BehaviorSpec({
 
     given("multiple rules on the same record") {
         val rules = arrayOf(
-            ValidationRule("r1", "id",     RuleType.NOT_NULL, message = "ID required"),
+            ValidationRule("r1", "id", RuleType.NOT_NULL, message = "ID required"),
             ValidationRule("r2", "amount", RuleType.MIN_VALUE, value = "0", message = "Amount must be >= 0"),
-            ValidationRule("r3", "code",   RuleType.REGEX, value = "^[A-Z]{3}$", message = "Code must be 3 uppercase letters")
+            ValidationRule("r3", "code", RuleType.REGEX, value = "^[A-Z]{3}$", message = "Code must be 3 uppercase letters"),
         )
 
         `when`("all fields are valid") {

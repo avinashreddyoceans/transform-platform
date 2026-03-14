@@ -1,7 +1,5 @@
 package com.transformplatform.core.spec.model
 
-import com.fasterxml.jackson.annotation.JsonSubTypes
-import com.fasterxml.jackson.annotation.JsonTypeInfo
 import java.time.Instant
 
 /**
@@ -16,9 +14,9 @@ data class FileSpec(
     val format: FileFormat,
     val encoding: String = "UTF-8",
     val hasHeader: Boolean = false,
-    val delimiter: String? = null,          // CSV: comma, pipe, tab etc
+    val delimiter: String? = null, // CSV: comma, pipe, tab etc
     val recordSeparator: String = "\n",
-    val skipLinesCount: Int = 0,            // skip N lines at top of file
+    val skipLinesCount: Int = 0, // skip N lines at top of file
     val fields: List<FieldSpec>,
     val validationRules: List<ValidationRule> = emptyList(),
     val correctionRules: List<CorrectionRule> = emptyList(),
@@ -26,7 +24,7 @@ data class FileSpec(
     val metadata: Map<String, String> = emptyMap(),
     val createdAt: Instant = Instant.now(),
     val updatedAt: Instant = Instant.now(),
-    val createdBy: String = "system"
+    val createdBy: String = "system",
 )
 
 enum class FileFormat {
@@ -37,8 +35,8 @@ enum class FileFormat {
     NACHA,
     ISO20022,
     SWIFT_MT,
-    DELIMITED,      // any custom delimiter
-    CUSTOM
+    DELIMITED, // any custom delimiter
+    CUSTOM,
 }
 
 /**
@@ -56,24 +54,24 @@ data class FieldSpec(
 
     // CSV / Delimited
     val columnIndex: Int? = null,
-    val columnName: String? = null,       // when hasHeader = true
+    val columnName: String? = null, // when hasHeader = true
 
     // XML / JSON
-    val path: String? = null,             // XPath for XML, JSONPath for JSON
-    val xmlAttribute: String? = null,     // for XML attributes
+    val path: String? = null, // XPath for XML, JSONPath for JSON
+    val xmlAttribute: String? = null, // for XML attributes
 
     // Common
     val required: Boolean = true,
     val nullable: Boolean = false,
     val defaultValue: String? = null,
-    val format: String? = null,           // date format, number format etc
-    val scale: Int? = null,               // decimal places for AMOUNT/DECIMAL
+    val format: String? = null, // date format, number format etc
+    val scale: Int? = null, // decimal places for AMOUNT/DECIMAL
     val validationRegex: String? = null,
     val minLength: Int? = null,
     val maxLength: Int? = null,
     val allowedValues: List<String> = emptyList(),
-    val sensitive: Boolean = false,       // PII — will be masked in logs
-    val description: String = ""
+    val sensitive: Boolean = false, // PII — will be masked in logs
+    val description: String = "",
 )
 
 enum class FieldType {
@@ -81,15 +79,15 @@ enum class FieldType {
     INTEGER,
     LONG,
     DECIMAL,
-    AMOUNT,           // monetary value with scale
+    AMOUNT, // monetary value with scale
     DATE,
     DATETIME,
     BOOLEAN,
     ALPHANUMERIC,
-    ROUTING_NUMBER,   // domain-aware: bank routing
-    ACCOUNT_NUMBER,   // domain-aware: bank account
+    ROUTING_NUMBER, // domain-aware: bank routing
+    ACCOUNT_NUMBER, // domain-aware: bank account
     ABA,
-    ENUM
+    ENUM,
 }
 
 /**
@@ -100,9 +98,9 @@ data class ValidationRule(
     val field: String,
     val ruleType: RuleType,
     val value: String? = null,
-    val secondaryValue: String? = null,   // for BETWEEN rules
+    val secondaryValue: String? = null, // for BETWEEN rules
     val message: String,
-    val severity: Severity = Severity.ERROR
+    val severity: Severity = Severity.ERROR,
 )
 
 enum class RuleType {
@@ -116,15 +114,15 @@ enum class RuleType {
     MAX_VALUE,
     BETWEEN,
     ALLOWED_VALUES,
-    CUSTOM_EXPRESSION,  // SpEL expression
-    CROSS_FIELD         // validate field A against field B
+    CUSTOM_EXPRESSION, // SpEL expression
+    CROSS_FIELD, // validate field A against field B
 }
 
 enum class Severity {
     INFO,
     WARNING,
     ERROR,
-    FATAL   // stops processing the entire file
+    FATAL, // stops processing the entire file
 }
 
 /**
@@ -135,7 +133,7 @@ data class CorrectionRule(
     val field: String,
     val correctionType: CorrectionType,
     val value: String? = null,
-    val applyOrder: Int = 0
+    val applyOrder: Int = 0,
 )
 
 enum class CorrectionType {
@@ -145,14 +143,14 @@ enum class CorrectionType {
     UPPERCASE,
     LOWERCASE,
     TITLE_CASE,
-    DATE_FORMAT_COERCE,     // try to parse any date format and normalize
-    NUMBER_FORMAT_COERCE,   // strip commas, currency symbols
+    DATE_FORMAT_COERCE, // try to parse any date format and normalize
+    NUMBER_FORMAT_COERCE, // strip commas, currency symbols
     DEFAULT_IF_NULL,
     DEFAULT_IF_EMPTY,
     PAD_LEFT,
     PAD_RIGHT,
     REMOVE_SPECIAL_CHARS,
-    REGEX_REPLACE
+    REGEX_REPLACE,
 }
 
 /**
@@ -163,11 +161,11 @@ data class OutputSpec(
     val delimiter: String? = null,
     val encoding: String = "UTF-8",
     val hasHeader: Boolean = false,
-    val fieldMappings: List<FieldMapping> = emptyList()
+    val fieldMappings: List<FieldMapping> = emptyList(),
 )
 
 data class FieldMapping(
     val sourceField: String,
     val targetField: String,
-    val transformation: String? = null    // SpEL or simple expression
+    val transformation: String? = null, // SpEL or simple expression
 )

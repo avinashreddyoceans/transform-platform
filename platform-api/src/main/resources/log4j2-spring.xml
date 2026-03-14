@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Transform Platform — Log4j2 configuration
+    ══════════════════════════════════════════════════════════════════════════
+    Two appenders run in parallel:
+
+    Console (development visibility)
+      → ColourPattern with traceId / spanId from MDC (written by TracingMdcFilter)
+
+    OpenTelemetryAppender (primary pipeline)
+      → Sends log records directly to the OTel Collector via gRPC (OTLP).
+      → The OTel Collector routes them to Elasticsearch / Kibana.
+      → Trace context (trace_id / span_id) is attached automatically from
+        the active OTel span — no MDC bridge needed.
+      → Wired to the Spring-managed SdkLoggerProvider at startup by
+        OtelLoggingConfig.openTelemetryAppenderInstaller().
+
+    Package-level overrides
+      → com.transformplatform: DEBUG
+      → Noisy third-party loggers capped at INFO / WARN
+    ══════════════════════════════════════════════════════════════════════════
+-->
+<Configuration status="WARN" packages="io.opentelemetry.instrumentation.log4j.appender.v2_17">
+    <Appenders>
+
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout
+                pattern="%d{ISO8601} %highlight{%-5level} thread=%style{%-40t}{bright,blue} traceId=%style{%X{traceId}}{magenta} spanId=%style{%X{spanId}}{green} %style{%c{1}:%L - %m%n}{cyan}"/>
+        </Console>
+
+        <!--
+            OpenTelemetryAppender — pushes structured log records to the OTel SDK.
+            The SDK BatchLogRecordProcessor forwards them to the OTel Collector via gRPC.
+            captureContextDataAttributes="*" captures all MDC keys (correlationId, etc.)
+            captureExperimentalAttributes adds thread name, logger name, and line number.
+        -->
+        <OpenTelemetry name="OpenTelemetryAppender"
+                       captureMapMessageAttributes="true"
+                       captureMarkerAttribute="true"
+                       captureContextDataAttributes="*"
+                       captureExperimentalAttributes="true"/>
+
+    </Appenders>
+
+    <Loggers>
+
+        <!-- Application code at DEBUG; everything else defaults to INFO -->
+        <Logger name="com.transformplatform" level="DEBUG" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="OpenTelemetryAppender"/>
+        </Logger>
+
+        <!-- Cap noisy frameworks -->
+        <Logger name="org.springframework.kafka"  level="INFO"  additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="OpenTelemetryAppender"/>
+        </Logger>
+        <Logger name="org.hibernate.SQL"          level="INFO"  additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="OpenTelemetryAppender"/>
+        </Logger>
+        <Logger name="io.opentelemetry"           level="WARN"  additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Logger name="io.micrometer.tracing"      level="WARN"  additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Logger name="org.apache.camel"           level="INFO"  additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="OpenTelemetryAppender"/>
+        </Logger>
+
+        <Root level="INFO">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="OpenTelemetryAppender" level="INFO"/>
+        </Root>
+
+    </Loggers>
+</Configuration>

@@ -18,7 +18,7 @@ import java.util.UUID
  *      (preserves end-to-end tracing across service boundaries)
  *   2. Generated as a UUID v4 if not present
  *   3. Set in the SLF4J MDC as `correlationId` — automatically included in
- *      every log line via logback-spring.xml configuration
+ *      every log line via log4j2-spring.xml configuration
  *   4. Propagated back to the caller in the `X-Correlation-ID` response header
  *
  * The MDC is always cleared after the request completes to prevent leakage
@@ -42,11 +42,7 @@ class CorrelationIdFilter : OncePerRequestFilter() {
         const val MDC_CORRELATION_KEY = "correlationId"
     }
 
-    override fun doFilterInternal(
-        request: HttpServletRequest,
-        response: HttpServletResponse,
-        filterChain: FilterChain,
-    ) {
+    override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, filterChain: FilterChain) {
         val correlationId = request.getHeader(CORRELATION_HEADER)
             ?.takeIf { it.isNotBlank() }
             ?: UUID.randomUUID().toString()
