@@ -79,7 +79,7 @@ dependencies {
     // OTel Log4j2 appender — ships log records to OTel Collector via OTLP HTTP.
     // OtelLoggingConfig reads otel.exporter.otlp.logs.endpoint from application.yml
     // and calls OpenTelemetryAppender.install() to wire it up at startup.
-    implementation("io.opentelemetry.instrumentation:opentelemetry-log4j-appender-2.17:2.1.0-alpha")
+    implementation("io.opentelemetry.instrumentation:opentelemetry-log4j-appender-2.17:2.4.0-alpha")
 
     // JWT
     implementation("io.jsonwebtoken:jjwt-api:0.12.3")

@@ -562,6 +562,117 @@
         { "datasource": "Prometheus", "expr": "histogram_quantile(0.95, sum(rate(transform_action_execution_duration_seconds_bucket[5m])) by (le, actionType))", "legendFormat": "p95 {{actionType}}" },
         { "datasource": "Prometheus", "expr": "histogram_quantile(0.99, sum(rate(transform_action_execution_duration_seconds_bucket[5m])) by (le, actionType))", "legendFormat": "p99 {{actionType}}" }
       ]
+    },
+
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 53 }, "id": 32, "title": "🐪  Apache Camel Routes", "type": "row" },
+
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 54 }, "id": 33,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "title": "Active Routes",
+      "description": "Number of distinct routes that have processed at least one exchange.",
+      "type": "stat",
+      "targets": [{ "datasource": "Prometheus", "expr": "count(count(camel_route_policy_seconds_count) by (routeId))", "legendFormat": "Routes" }]
+    },
+
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 54 }, "id": 34,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "title": "Completed Exchanges (total)",
+      "type": "stat",
+      "targets": [{ "datasource": "Prometheus", "expr": "sum(camel_exchange_event_notifier_total{eventType=\"ExchangeCompletedEvent\"})", "legendFormat": "Completed" }]
+    },
+
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 10 }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 54 }, "id": 35,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "title": "Failed Exchanges (total)",
+      "type": "stat",
+      "targets": [{ "datasource": "Prometheus", "expr": "sum(camel_exchange_event_notifier_total{eventType=\"ExchangeFailedEvent\"})", "legendFormat": "Failed" }]
+    },
+
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 5 }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 54 }, "id": 36,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "title": "Dead Letter Redeliveries (total)",
+      "description": "Total exchanges retried via Dead Letter Channel across all routes.",
+      "type": "stat",
+      "targets": [{ "datasource": "Prometheus", "expr": "sum(camel_exchange_event_notifier_total{eventType=\"ExchangeRedeliveryEvent\"})", "legendFormat": "Redeliveries" }]
+    },
+
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "ops", "color": { "mode": "palette-classic" }, "custom": { "fillOpacity": 8, "lineWidth": 2 } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 58 }, "id": 37,
+      "options": { "tooltip": { "mode": "multi" } },
+      "title": "Exchange Throughput / sec by Route",
+      "description": "Rate of exchanges processed per route (1-min window). Derived from the route policy Timer.",
+      "type": "timeseries",
+      "targets": [{ "datasource": "Prometheus", "expr": "sum(rate(camel_route_policy_seconds_count[1m])) by (routeId)", "legendFormat": "{{routeId}}" }]
+    },
+
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "palette-classic" }, "custom": { "fillOpacity": 8, "lineWidth": 2 } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 58 }, "id": 38,
+      "options": { "tooltip": { "mode": "multi" } },
+      "title": "Route Processing Time — p50 / p95 / p99",
+      "description": "End-to-end exchange duration per route. High p99 may indicate slow SFTP/S3 connectivity or large file sizes.",
+      "type": "timeseries",
+      "targets": [
+        { "datasource": "Prometheus", "expr": "histogram_quantile(0.50, sum(rate(camel_route_policy_seconds_bucket[5m])) by (le, routeId))", "legendFormat": "p50 {{routeId}}" },
+        { "datasource": "Prometheus", "expr": "histogram_quantile(0.95, sum(rate(camel_route_policy_seconds_bucket[5m])) by (le, routeId))", "legendFormat": "p95 {{routeId}}" },
+        { "datasource": "Prometheus", "expr": "histogram_quantile(0.99, sum(rate(camel_route_policy_seconds_bucket[5m])) by (le, routeId))", "legendFormat": "p99 {{routeId}}" }
+      ]
+    },
+
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "ops", "color": { "mode": "palette-classic" }, "custom": { "fillOpacity": 15, "lineWidth": 2 } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 58 }, "id": 39,
+      "options": { "tooltip": { "mode": "multi" } },
+      "title": "Exchange Error & Redelivery Rate / sec",
+      "description": "Rate of failed exchanges and DLC redeliveries. Sustained failures mean errors are accumulating in the Dead Letter Channel.",
+      "type": "timeseries",
+      "targets": [
+        { "datasource": "Prometheus", "expr": "sum(rate(camel_exchange_event_notifier_total{eventType=\"ExchangeFailedEvent\"}[1m]))", "legendFormat": "Failed" },
+        { "datasource": "Prometheus", "expr": "sum(rate(camel_exchange_event_notifier_total{eventType=\"ExchangeRedeliveryEvent\"}[1m]))", "legendFormat": "Redeliveries (DLC)" }
+      ]
+    },
+
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "palette-classic" }, "custom": { "fillOpacity": 6, "lineWidth": 2 } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 66 }, "id": 40,
+      "options": { "tooltip": { "mode": "multi" } },
+      "title": "Route Max Processing Time (sliding window)",
+      "description": "Peak exchange duration observed in the last scrape interval per route. Spikes indicate individual slow exchanges — check SFTP/S3 latency or file sizes.",
+      "type": "timeseries",
+      "targets": [{ "datasource": "Prometheus", "expr": "max(camel_route_policy_seconds_max) by (routeId)", "legendFormat": "Max {{routeId}}" }]
+    },
+
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "ops", "color": { "mode": "palette-classic" }, "custom": { "fillOpacity": 8, "lineWidth": 2, "stacking": { "mode": "normal", "group": "A" } } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 66 }, "id": 41,
+      "options": { "tooltip": { "mode": "multi" } },
+      "title": "Exchange Lifecycle Events / sec (stacked)",
+      "description": "All exchange lifecycle events stacked. Completed + Failed = total throughput. Redeliveries show DLC retry activity.",
+      "type": "timeseries",
+      "targets": [
+        { "datasource": "Prometheus", "expr": "sum(rate(camel_exchange_event_notifier_total{eventType=\"ExchangeCompletedEvent\"}[1m]))", "legendFormat": "Completed" },
+        { "datasource": "Prometheus", "expr": "sum(rate(camel_exchange_event_notifier_total{eventType=\"ExchangeFailedEvent\"}[1m]))", "legendFormat": "Failed" },
+        { "datasource": "Prometheus", "expr": "sum(rate(camel_exchange_event_notifier_total{eventType=\"ExchangeRedeliveryEvent\"}[1m]))", "legendFormat": "Redeliveries (DLC)" },
+        { "datasource": "Prometheus", "expr": "sum(rate(camel_exchange_event_notifier_total{eventType=\"ExchangeSentEvent\"}[1m]))", "legendFormat": "Sent to endpoint" }
+      ]
     }
 
   ],
@@ -574,5 +685,5 @@
   "timezone": "browser",
   "title": "Transform Platform",
   "uid": "transform-platform-main",
-  "version": 2
+  "version": 3
 }

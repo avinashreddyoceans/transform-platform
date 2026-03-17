@@ -21,6 +21,11 @@ dependencies {
     implementation("org.apache.camel.springboot:camel-ftp-starter")
     // AWS S3 polling consumer (v2 SDK-backed)
     implementation("org.apache.camel.springboot:camel-aws2-s3-starter")
+    // Micrometer instrumentation — auto-registers MicrometerRoutePolicyFactory
+    // (per-route processing time Timer) and MicrometerExchangeEventNotifier
+    // (exchange lifecycle Counters) into the shared Prometheus Micrometer registry.
+    // Exposes: camel_route_policy_seconds_*, camel_exchange_event_notifier_total
+    implementation("org.apache.camel.springboot:camel-micrometer-starter")
 
     // ── AWS SDK (for S3 credentials / client) ────────────────────────────────
     implementation("software.amazon.awssdk:s3:2.25.16")

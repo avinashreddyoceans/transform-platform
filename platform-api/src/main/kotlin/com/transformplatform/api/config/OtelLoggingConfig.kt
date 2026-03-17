@@ -29,47 +29,51 @@ import org.springframework.context.annotation.Configuration
  * it — causing NoClassDefFoundError on ch.qos.logback when Logback is excluded.
  */
 @Configuration
-class OtelLoggingConfig {
-
+class OtelLoggingConfig(
     @Value("\${otel.exporter.otlp.logs.endpoint:http://localhost:4318/v1/logs}")
-    private lateinit var logsEndpoint: String
+    private val logsEndpoint: String,
 
     @Value("\${otel.resource.attributes.service.name:\${spring.application.name:transform-platform}}")
-    private lateinit var serviceName: String
+    private val serviceName: String,
 
     @Value("\${otel.resource.attributes.service.version:\${build.version:unknown}}")
-    private lateinit var serviceVersion: String
+    private val serviceVersion: String,
 
     @Value("\${otel.resource.attributes.service.instance.id:\${HOSTNAME:localhost}}")
-    private lateinit var serviceInstanceId: String
+    private val serviceInstanceId: String,
 
     @Value("\${otel.resource.attributes.deployment.environment:\${spring.profiles.active:local}}")
-    private lateinit var deploymentEnv: String
-
+    private val deploymentEnv: String,
+) {
     @Bean
-    fun openTelemetryAppenderInstaller(): ApplicationRunner = ApplicationRunner {
-        // Use AttributeKey.stringKey() — avoids a dependency on opentelemetry-semconv
-        // which is not part of the opentelemetry-bom managed by Spring Boot 3.2.x.
-        val resource = Resource.getDefault().toBuilder()
+    fun openTelemetryAppenderInstaller(): ApplicationRunner =
+        ApplicationRunner { OpenTelemetryAppender.install(buildOpenTelemetry()) }
+
+    // ── Builder pipeline ──────────────────────────────────────────────────────
+
+    private fun buildOpenTelemetry(): OpenTelemetrySdk =
+        OpenTelemetrySdk.builder()
+            .setLoggerProvider(buildLoggerProvider())
+            .build()
+
+    private fun buildLoggerProvider(): SdkLoggerProvider =
+        SdkLoggerProvider.builder()
+            .setResource(buildResource())
+            .addLogRecordProcessor(BatchLogRecordProcessor.builder(buildExporter()).build())
+            .build()
+
+    private fun buildResource(): Resource =
+        // AttributeKey.stringKey() avoids a dep on opentelemetry-semconv,
+        // which is not part of the opentelemetry-bom in Spring Boot 3.2.x.
+        Resource.getDefault().toBuilder()
             .put(AttributeKey.stringKey("service.name"), serviceName)
             .put(AttributeKey.stringKey("service.version"), serviceVersion)
             .put(AttributeKey.stringKey("service.instance.id"), serviceInstanceId)
             .put(AttributeKey.stringKey("deployment.environment"), deploymentEnv)
             .build()
 
-        val exporter = OtlpHttpLogRecordExporter.builder()
+    private fun buildExporter(): OtlpHttpLogRecordExporter =
+        OtlpHttpLogRecordExporter.builder()
             .setEndpoint(logsEndpoint)
             .build()
-
-        val loggerProvider = SdkLoggerProvider.builder()
-            .setResource(resource)
-            .addLogRecordProcessor(BatchLogRecordProcessor.builder(exporter).build())
-            .build()
-
-        val otel = OpenTelemetrySdk.builder()
-            .setLoggerProvider(loggerProvider)
-            .build()
-
-        OpenTelemetryAppender.install(otel)
-    }
 }

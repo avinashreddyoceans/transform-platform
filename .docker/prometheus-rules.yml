@@ -49,6 +49,36 @@ groups:
       - record: job:transform_records_failed:rate1m
         expr: sum(rate(transform_transform_records_failed_total[1m])) by (job)
 
+      # ── Camel ────────────────────────────────────────────────────────────────
+
+      # Exchange throughput per route (completions/sec, 1-min window)
+      - record: route:camel_exchanges_completed:rate1m
+        expr: sum(rate(camel_route_policy_seconds_count[1m])) by (routeId)
+
+      # Failed exchange rate per route (failures/sec, 1-min window)
+      - record: route:camel_exchanges_failed:rate1m
+        expr: sum(rate(camel_exchange_event_notifier_total{eventType="ExchangeFailedEvent"}[1m])) by (routeId)
+
+      # Redelivery (dead-letter) rate per route (redeliveries/sec, 1-min window)
+      - record: route:camel_exchanges_redelivery:rate1m
+        expr: sum(rate(camel_exchange_event_notifier_total{eventType="ExchangeRedeliveryEvent"}[1m])) by (routeId)
+
+      # Exchange failure ratio per route (0–1)
+      # Uses clamp_min to avoid division-by-zero on idle routes
+      - record: route:camel_exchange_error_ratio:rate1m
+        expr: >
+          route:camel_exchanges_failed:rate1m
+          /
+          clamp_min(route:camel_exchanges_completed:rate1m + route:camel_exchanges_failed:rate1m, 0.001)
+
+      # Route p99 processing time (seconds, 5-min window)
+      - record: route:camel_processing_p99:5m
+        expr: histogram_quantile(0.99, sum(rate(camel_route_policy_seconds_bucket[5m])) by (le, routeId))
+
+      # Route p95 processing time (seconds, 5-min window)
+      - record: route:camel_processing_p95:5m
+        expr: histogram_quantile(0.95, sum(rate(camel_route_policy_seconds_bucket[5m])) by (le, routeId))
+
 
   # ── Alerting Rules ───────────────────────────────────────────────────────────
   - name: transform_platform_alerts
@@ -189,3 +219,50 @@ groups:
         annotations:
           summary: "Transform failure rate above 50%"
           description: "{{ humanizePercentage $value }} of records are failing. Pipeline may be receiving malformed input."
+
+      # ── Apache Camel ─────────────────────────────────────────────────────────
+
+      - alert: CamelRouteHighErrorRate
+        expr: route:camel_exchange_error_ratio:rate1m > 0.10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Camel route {{ $labels.routeId }} error rate above 10%"
+          description: "Route {{ $labels.routeId }} has a {{ humanizePercentage $value }} exchange failure rate over the last 5 minutes. Check dead-letter channel and upstream connectivity."
+
+      - alert: CamelRouteCriticalErrorRate
+        expr: route:camel_exchange_error_ratio:rate1m > 0.50
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Camel route {{ $labels.routeId }} error rate above 50%"
+          description: "Route {{ $labels.routeId }} is failing {{ humanizePercentage $value }} of exchanges. Route may be unable to contact its data source or destination."
+
+      - alert: CamelHighRedeliveryRate
+        expr: route:camel_exchanges_redelivery:rate1m > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Camel route {{ $labels.routeId }} sustained redeliveries"
+          description: "Route {{ $labels.routeId }} is redelivering {{ $value | printf \"%.2f\" }} msg/s. Dead-letter channel may be accumulating failed messages — check error queue depth."
+
+      - alert: CamelRouteHighProcessingTime
+        expr: route:camel_processing_p99:5m > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Camel route {{ $labels.routeId }} p99 latency above 30s"
+          description: "Route {{ $labels.routeId }} p99 processing time is {{ humanizeDuration $value }}. Downstream SFTP/S3 endpoint may be slow or the file being processed is unusually large."
+
+      - alert: CamelRouteStopped
+        expr: absent(camel_route_policy_seconds_count) == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No Camel route activity detected"
+          description: "The metric camel_route_policy_seconds_count has not been reported for 5 minutes. All Camel routes may have stopped or the app may have crashed."
