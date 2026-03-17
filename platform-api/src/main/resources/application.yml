@@ -78,6 +78,19 @@ management:
       service: ${spring.application.name:transform-platform}
       env: ${spring.profiles.active:local}
       version: ${build.version:unknown}
+    # ── Histogram buckets ─────────────────────────────────────────────────────
+    # Emit _bucket metrics for HTTP requests so histogram_quantile() works in
+    # Prometheus/Grafana (p50/p95/p99 latency panels).
+    # The bracket notation prevents Spring from treating the dots as nested keys.
+    distribution:
+      percentiles-histogram:
+        "[http.server.requests]": true
+      # Constrain the bucket range to avoid cardinality explosion.
+      # Anything outside [1ms, 10s] is clamped into the boundary buckets.
+      minimum-expected-value:
+        "[http.server.requests]": 1ms
+      maximum-expected-value:
+        "[http.server.requests]": 10s
   # ── Distributed Tracing ──────────────────────────────────────────────────────
   tracing:
     sampling:
