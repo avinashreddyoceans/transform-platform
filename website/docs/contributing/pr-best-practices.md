@@ -603,6 +603,8 @@ Pin this in Slack or stick it on your desk.
 - [Conventional Commits specification](https://www.conventionalcommits.org/)
 - [Google Engineering Practices — Code Review](https://google.github.io/eng-practices/review/)
 - [How to Write a Git Commit Message — Chris Beams](https://cbea.ms/git-commit/)
+- [Atlassian — Merging vs Rebasing](https://www.atlassian.com/git/tutorials/merging-vs-rebasing)
+- [Git Book — Advanced Merging](https://git-scm.com/book/en/v2/Git-Tools-Advanced-Merging)
 
 ---
 
