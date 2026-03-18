@@ -1,7 +1,7 @@
 ---
 id: testing
 title: Testing Requirements
-sidebar_position: 2
+sidebar_position: 3
 ---
 
 # Testing Requirements

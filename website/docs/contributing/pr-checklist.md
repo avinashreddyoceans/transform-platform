@@ -1,7 +1,7 @@
 ---
 id: pr-checklist
 title: PR Checklist
-sidebar_position: 3
+sidebar_position: 4
 ---
 
 # Pull Request Checklist
@@ -61,9 +61,9 @@ flowchart TD
 
 ## Common Mistakes to Avoid
 
-| Do not | Reason |
-|--------|--------|
-| Add `flyway-database-postgresql` | Does not exist in Boot 3.2.3 BOM |
-| Enable `bootJar` on pipeline/scheduler modules | No main class — build fails |
+| Do not                                                      | Reason                                       |
+|-------------------------------------------------------------|----------------------------------------------|
+| Add `flyway-database-postgresql`                            | Does not exist in Boot 3.2.3 BOM             |
+| Enable `bootJar` on pipeline/scheduler modules              | No main class — build fails                  |
 | Use `SpringBootApplicationConfigurationType` in `.run/` XML | Wrong type ID — IntelliJ silently ignores it |
-| Commit a filled `.env` file | Gitignored for a reason |
+| Commit a filled `.env` file                                 | Gitignored for a reason                      |

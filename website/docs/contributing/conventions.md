@@ -75,13 +75,13 @@ graph TD
 
 ## What NOT To Do
 
-| Do not | Reason |
-|--------|--------|
-| Add `flyway-database-postgresql` dependency | Does not exist in Flyway 9.x (Boot 3.2.3 BOM) |
-| Enable `bootJar` on `platform-pipeline` or `platform-scheduler` | No main class — will fail build |
-| Load an entire file into a `List` in a parser | Breaks stream-first design; use `Flow` and `emit` |
-| Log raw values for `sensitive=true` fields | PII leak; always mask with `***` |
-| Throw exceptions inside `Flow { }` blocks | Creates uncollectable flow; add `ParseError` to record instead |
-| Commit a filled `.env` file | Gitignored for a reason — use `env.example` as reference |
-| Use JUnit test classes | Project is Kotest-only; JUnit Vintage is excluded |
-| Modify `ParserRegistry` to hard-code a new parser | Breaks Open/Closed; annotate the new parser `@Component` |
+| Do not                                                          | Reason                                                         |
+|-----------------------------------------------------------------|----------------------------------------------------------------|
+| Add `flyway-database-postgresql` dependency                     | Does not exist in Flyway 9.x (Boot 3.2.3 BOM)                  |
+| Enable `bootJar` on `platform-pipeline` or `platform-scheduler` | No main class — will fail build                                |
+| Load an entire file into a `List` in a parser                   | Breaks stream-first design; use `Flow` and `emit`              |
+| Log raw values for `sensitive=true` fields                      | PII leak; always mask with `***`                               |
+| Throw exceptions inside `Flow { }` blocks                       | Creates uncollectable flow; add `ParseError` to record instead |
+| Commit a filled `.env` file                                     | Gitignored for a reason — use `env.example` as reference       |
+| Use JUnit test classes                                          | Project is Kotest-only; JUnit Vintage is excluded              |
+| Modify `ParserRegistry` to hard-code a new parser               | Breaks Open/Closed; annotate the new parser `@Component`       |

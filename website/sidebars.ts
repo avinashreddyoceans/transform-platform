@@ -107,6 +107,7 @@ const sidebars: SidebarsConfig = {
       collapsed: true,
       items: [
         'contributing/conventions',
+        'contributing/pr-best-practices',
         'contributing/testing',
         'contributing/pr-checklist',
       ],

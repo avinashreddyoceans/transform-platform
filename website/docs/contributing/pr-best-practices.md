@@ -1,3 +1,9 @@
+---
+id: pr-best-practices
+title: PR Best Practices
+sidebar_position: 2
+---
+
 # PR Best Practices — Team Guide
 
 > A living reference for branch naming, commit messages, PR hygiene, and review quality.
@@ -9,12 +15,13 @@
 
 1. [Why this matters](#why-this-matters)
 2. [Branch naming](#branch-naming)
-3. [Commit messages](#commit-messages)
-4. [PR size and focus](#pr-size-and-focus)
-5. [PR template guide](#pr-template-guide)
-6. [Review comment labels](#review-comment-labels)
-7. [Team agreements](#team-agreements)
-8. [Cheat sheet](#cheat-sheet)
+3. [Daily git workflow](#daily-git-workflow)
+4. [Commit messages](#commit-messages)
+5. [PR size and focus](#pr-size-and-focus)
+6. [PR template guide](#pr-template-guide)
+7. [Review comment labels](#review-comment-labels)
+8. [Team agreements](#team-agreements)
+9. [Cheat sheet](#cheat-sheet)
 
 ---
 
@@ -39,6 +46,15 @@ Good PRs are a form of documentation. They tell a story: what was broken, why, a
 type/JIRA-TICKET/short-description
 ```
 
+### Base branch rules
+
+| Branch type | Created from | Merges into |
+|---|---|---|
+| `feat`, `fix`, `chore`, `docs`, `refactor`, `test` | `develop` | `develop` |
+| `hotfix` | `main` | `main` **and** `develop` |
+
+`develop` is the integration branch where all daily work lands. `main` is production-stable and only receives hotfix PRs and planned release merges from `develop`.
+
 ### Types
 
 | Type | When to use |
@@ -49,16 +65,20 @@ type/JIRA-TICKET/short-description
 | `docs` | Documentation only |
 | `refactor` | Code restructure with no behaviour change |
 | `test` | Adding or fixing tests only |
+| `hotfix` | Critical production fix — branches from `main`, not `develop` |
 
 ### Examples
 
 ```bash
-# ✅ Good
+# ✅ Good — regular branches off develop
 feat/OBS-123/local-observability-stack
 fix/OBS-456/elasticsearch-pipeline-drop
 chore/OBS-789/pin-otel-collector-version
 docs/OBS-101/update-local-dev-readme
 refactor/OBS-202/extract-batch-processor-config
+
+# ✅ Good — hotfix off main
+hotfix/OBS-999/null-pointer-on-startup
 
 # ❌ Bad
 avi-working-branch
@@ -74,6 +94,266 @@ fix-the-thing
 - Ticket number is mandatory — links the branch to a trackable unit of work
 - Description should be readable by someone who hasn't seen the Jira ticket
 - Keep it under 60 characters total
+
+---
+
+## Daily git workflow
+
+End-to-end lifecycle of a branch — from creation to merged PR. Each step shows both the terminal command and the IntelliJ equivalent so you can work in whichever flavour you prefer.
+
+All regular work branches from `develop`. See [Hotfix workflow](#hotfix-workflow) at the end of this section for the `main`-based exception.
+
+```mermaid
+gitGraph
+   commit id: "main: v1.2.0 (production)"
+   branch develop
+   checkout develop
+   commit id: "develop: integration"
+   branch feat/OBS-123/local-observability-stack
+   checkout feat/OBS-123/local-observability-stack
+   commit id: "feat: add docker compose services"
+   commit id: "feat: add otel collector config"
+   commit id: "fix: remove empty pipeline key"
+   checkout develop
+   commit id: "develop: teammate merges"
+   checkout feat/OBS-123/local-observability-stack
+   merge develop id: "rebase/sync from develop"
+   commit id: "chore: address review feedback"
+   checkout develop
+   merge feat/OBS-123/local-observability-stack id: "PR merged (squash)"
+```
+
+---
+
+### Step 1 — create your branch from latest develop
+
+Always branch from an up-to-date `develop`. Never branch from a colleague's branch unless you are explicitly stacking work on top of theirs.
+
+**Terminal:**
+```bash
+git checkout develop
+git pull origin develop
+git checkout -b feat/OBS-123/local-observability-stack
+```
+
+**IntelliJ:**
+1. Click the **branch indicator** in the bottom-right status bar → select **develop** → **Checkout**
+2. **Git → Pull** to sync local develop with remote
+3. Click the branch indicator again → **New Branch…** → enter `feat/OBS-123/local-observability-stack` → **Create Branch**
+
+---
+
+### Step 2 — work in small, logical commits
+
+Commit each logical unit of work separately. Do not accumulate days of work into one giant commit.
+
+**Terminal:**
+```bash
+# Stage only what belongs to this logical change
+git add docker-compose.yaml otel-collector-config.yaml
+git commit -m "feat(observability): add otel collector and jaeger services"
+
+git add prometheus.yml prometheus-rules.yml
+git commit -m "feat(observability): add prometheus scrape config and alert rules"
+
+git add grafana/provisioning/
+git commit -m "feat(observability): provision grafana datasources and dashboards"
+```
+
+**IntelliJ:**
+1. Open the **Commit** tool window (`⌘K` / `Ctrl+K`) — all changed files appear here
+2. **Check only the files** that belong to this logical change; uncheck the rest
+3. For partial-file staging (committing only some hunks in a file): right-click the file → **Show Diff** → use the `+` gutter icon to stage individual hunks
+4. Write the commit message in the text field at the top of the Commit window
+5. Click **Commit** — do not use "Commit and Push" here; keep commits and pushes as separate actions
+
+> Enable per-hunk staging if not already on: **Settings → Version Control → Git → Enable staging area**
+
+---
+
+### Step 3 — push your branch early (draft PR)
+
+Push on your first day of work and open a draft PR. This gives teammates visibility, triggers CI early, and prevents surprise large PRs appearing at the end of a sprint.
+
+**Terminal:**
+```bash
+git push -u origin feat/OBS-123/local-observability-stack
+# Then open a Draft PR on GitHub
+```
+
+**IntelliJ:**
+1. **Git → Push** (`⌘⇧K` / `Ctrl+Shift+K`)
+2. IntelliJ sets the upstream (`-u`) automatically on the first push — no extra flag needed
+3. After pushing, go to GitHub in your browser and open a **Draft PR**
+
+---
+
+### Step 4 — keep your branch in sync with develop
+
+Every day before you start work, sync with `develop`. Do not let your branch drift for multiple days — the longer it drifts, the harder the eventual merge.
+
+**Terminal:**
+```bash
+# Recommended: rebase (keeps history linear)
+git fetch origin
+git rebase origin/develop
+
+# Alternative: merge (creates a merge commit — acceptable, less clean)
+git fetch origin
+git merge origin/develop
+```
+
+> **Which to use?** Use `rebase` for feature branches to keep a clean linear history. Use `merge` only when rebasing would rewrite shared history (i.e. someone else has already branched off your branch).
+
+**IntelliJ (Rebase — recommended):**
+1. **Git → Fetch** to pull remote refs without applying them
+2. In the **Git** tool window (`⌘9` / `Alt+9`) → **Branches** tab → expand **Remote** → right-click **origin/develop** → **Rebase Current Branch onto 'origin/develop'**
+
+**IntelliJ (Merge — alternative):**
+1. **Git → Fetch**
+2. In the Branches list, right-click **origin/develop** → **Merge 'origin/develop' into Current Branch**
+
+> **IntelliJ one-keystroke daily sync:** `⌘T` / `Ctrl+T` runs "Update Project". Configure it once at **Settings → Version Control → Git → Update Method → Rebase** and your morning sync becomes a single shortcut.
+
+---
+
+### Step 5 — push updates
+
+After a rebase you need to force-push because commit SHAs have changed. Use `--force-with-lease` — it is safer than `--force` because it refuses to overwrite if someone else has pushed to the branch since your last fetch.
+
+**Terminal:**
+```bash
+# After rebase — force push required
+git push --force-with-lease
+
+# After a normal commit (no rebase)
+git push
+```
+
+**IntelliJ:**
+- **After rebase:** **Git → Push** (`⌘⇧K` / `Ctrl+Shift+K`) — IntelliJ detects the diverged remote and highlights the Push button in red. Click **Force Push** when prompted. IntelliJ always uses `--force-with-lease` semantics internally; it will refuse if the remote has been updated by someone else since your last fetch.
+- **After a normal commit:** **Git → Push** (`⌘⇧K` / `Ctrl+Shift+K`) as usual.
+
+---
+
+### Step 6 — mark PR ready and request review
+
+When your work is complete:
+1. Remove draft status on GitHub
+2. Fill every required section of the PR template
+3. Self-review your own diff before requesting — catch your own typos and debug logs
+4. Request specific reviewers, not the entire team
+
+---
+
+### Step 7 — address feedback and re-request
+
+**Terminal:**
+```bash
+# Make your changes, then:
+git add <files>
+git commit -m "fix: address review feedback — add null check on ES client"
+git push
+# Re-request review on GitHub after pushing
+```
+
+**IntelliJ:**
+1. Make the edits in the editor
+2. Open **Commit** (`⌘K` / `Ctrl+K`), check the relevant files
+3. Write the commit message: `fix: address review feedback — add null check on ES client`
+4. Click **Commit**, then **Git → Push** (`⌘⇧K` / `Ctrl+Shift+K`)
+5. Re-request review on GitHub
+
+> Do not resolve reviewer comments yourself. The reviewer who left the comment resolves it after verifying the fix.
+
+---
+
+### Step 8 — merge
+
+Use **squash merge** for feature branches into `develop`. This keeps the develop history clean — one PR = one commit.
+
+On GitHub: set the base branch to **develop** and use **"Squash and merge"**. The squash commit message should follow the same convention:
+```
+feat(observability): add local observability stack [OBS-123]
+```
+
+---
+
+### Step 9 — clean up
+
+**Terminal:**
+```bash
+git checkout develop
+git pull origin develop
+
+# -D is required here — squash merge creates a new commit that is not an
+# ancestor of the feature branch, so git branch -d (lowercase) will refuse
+# with "not fully merged". Force-delete is safe because the work is already
+# in develop via the squash commit.
+git branch -D feat/OBS-123/local-observability-stack
+
+# Delete the remote branch
+# (GitHub can automate this: Settings → General → "Automatically delete head branches")
+git push origin --delete feat/OBS-123/local-observability-stack
+```
+
+**IntelliJ:**
+1. Click the branch indicator in the status bar → **develop** → **Checkout**
+2. **Git → Pull** to sync
+3. Click the branch indicator → local branch `feat/OBS-123/local-observability-stack` → **Delete**
+   - IntelliJ warns "Branch is not fully merged" — click **Delete Anyway** (safe: the work is in develop via the squash commit)
+4. To delete the remote branch: in the branch indicator, expand **Remote** → right-click the branch → **Delete Remote Branch**
+
+---
+
+### Hotfix workflow
+
+A hotfix is a critical production fix that cannot wait for the next planned release from `develop`. Because production runs `main`, you branch from `main` directly and merge back to `main` — but you **must also** back-merge to `develop` so the fix is not lost when the next release happens.
+
+```mermaid
+gitGraph
+   commit id: "main: v1.2.0"
+   branch develop
+   checkout develop
+   commit id: "develop: work in progress"
+   checkout main
+   branch hotfix/OBS-999/null-pointer-on-startup
+   checkout hotfix/OBS-999/null-pointer-on-startup
+   commit id: "fix: add null check on ES client init"
+   checkout main
+   merge hotfix/OBS-999/null-pointer-on-startup id: "hotfix → main (squash)"
+   checkout develop
+   merge main id: "back-merge hotfix → develop"
+```
+
+**Terminal:**
+```bash
+# 1. Branch from main (not develop)
+git checkout main
+git pull origin main
+git checkout -b hotfix/OBS-999/null-pointer-on-startup
+
+# 2. Make the fix, commit, push, open a PR targeting main
+git add <files>
+git commit -m "fix(startup): add null check on ES client initialisation"
+git push -u origin hotfix/OBS-999/null-pointer-on-startup
+
+# 3. After the hotfix PR is squash-merged into main,
+#    back-merge main into develop so the fix is not lost
+git checkout develop
+git pull origin develop
+git merge origin/main
+git push
+```
+
+**IntelliJ:**
+1. Click the branch indicator → **main** → **Checkout**, then **Git → Pull**
+2. Branch indicator → **New Branch…** → `hotfix/OBS-999/null-pointer-on-startup` → **Create Branch**
+3. Make the fix, commit via **Commit** (`⌘K` / `Ctrl+K`), push via **Git → Push** (`⌘⇧K` / `Ctrl+Shift+K`)
+4. Open a PR on GitHub with **base: main** — review and squash-merge as normal
+5. Back-merge: branch indicator → **develop** → **Checkout** → **Git → Pull** → branch indicator → right-click **origin/main** → **Merge 'origin/main' into Current Branch** → **Git → Push**
+
+> ⚠️ Skip the back-merge and the hotfix silently disappears from `develop` the moment the next release branch is cut. Always do it.
 
 ---
 
@@ -128,11 +408,11 @@ document.
 
 ### The rules
 
-| Rule | Threshold |
-|---|---|
-| Lines of diff | Aim for ≤ 400 |
-| Concerns per PR | Exactly 1 |
-| Files changed | Use judgement — 50+ is a smell |
+| Rule            | Threshold                      |
+|-----------------|--------------------------------|
+| Lines of diff   | Aim for ≤ 400                  |
+| Concerns per PR | Exactly 1                      |
+| Files changed   | Use judgement — 50+ is a smell |
 
 ### One concern means one thing
 
@@ -277,11 +557,13 @@ don't have to manually clean up between stack restarts. Good call.
 
 ## Team agreements
 
-These are the three things agreed on as a team. They apply from today. Raise a PR against this file to change them.
+These are the things agreed on as a team. They apply from today. Raise a PR against this file to change them.
 
 1. **All branches follow** `type/JIRA-ticket/short-description` — no exceptions
-2. **Every PR must fill** the Description and How to Test sections before requesting review
-3. **Every review comment gets a label** — `nit`, `question`, `suggest`, `blocker`, or `idea`
+2. **Feature, fix, and all regular branches are created from `develop`** — never from `main`
+3. **Hotfix branches are created from `main`** and must be back-merged to `develop` after landing
+4. **Every PR must fill** the Description and How to Test sections before requesting review
+5. **Every review comment gets a label** — `nit`, `question`, `suggest`, `blocker`, or `idea`
 
 ---
 
@@ -290,20 +572,28 @@ These are the three things agreed on as a team. They apply from today. Raise a P
 Pin this in Slack or stick it on your desk.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  PR BEST PRACTICES — QUICK REFERENCE                            │
-├─────────────────────────────────────────────────────────────────┤
-│  BRANCH     feat|fix|chore|docs|refactor / TICKET / description │
-│                                                                 │
-│  COMMIT     type(scope): what it does — present tense, 1 line  │
-│                                                                 │
-│  PR SIZE    one concern per PR · aim for ≤ 400 lines diff       │
-│                                                                 │
-│  TEMPLATE   Description + How to Test are non-negotiable        │
-│                                                                 │
-│  REVIEW     label every comment:                                │
-│             nit · question · suggest · blocker · idea           │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  PR BEST PRACTICES — QUICK REFERENCE                                 │
+├──────────────────────────────────────────────────────────────────────┤
+│  BRANCH       type/TICKET/description                                │
+│               feat|fix|chore|docs|refactor|test  →  off develop      │
+│               hotfix                             →  off main         │
+│                                                                      │
+│  COMMIT       type(scope): what it does — present tense, 1 line     │
+│                                                                      │
+│  DAILY SYNC   git fetch origin && git rebase origin/develop         │
+│               hotfix branches: rebase origin/main                   │
+│                                                                      │
+│  MERGE        Squash and merge into develop (features)               │
+│               Squash and merge into main + back-merge (hotfix)       │
+│                                                                      │
+│  PR SIZE      one concern per PR · aim for ≤ 400 lines diff          │
+│                                                                      │
+│  TEMPLATE     Description + How to Test are non-negotiable          │
+│                                                                      │
+│  REVIEW       label every comment:                                   │
+│               nit · question · suggest · blocker · idea             │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
