@@ -263,13 +263,13 @@ com.transformplatform.
 - **Minimum**: every new parser, writer, correction type, and validation rule type needs tests
 - **Spec style guide**:
 
-| What you're testing | Kotest style |
-|---------------------|-------------|
-| Parser behaviour | `DescribeSpec` |
-| Correction rules | `ShouldSpec` |
-| Validation rules | `BehaviorSpec` (Given/When/Then) |
-| Registry / routing | `FunSpec` |
-| Pipeline integration | `ShouldSpec` or `FunSpec` |
+| What you're testing  | Kotest style                     |
+|----------------------|----------------------------------|
+| Parser behaviour     | `DescribeSpec`                   |
+| Correction rules     | `ShouldSpec`                     |
+| Validation rules     | `BehaviorSpec` (Given/When/Then) |
+| Registry / routing   | `FunSpec`                        |
+| Pipeline integration | `ShouldSpec` or `FunSpec`        |
 
 - **Coroutine flows in tests**: use `.toList()` to collect, `runTest {}` for suspend tests
 - **No Spring context in unit tests** — instantiate classes directly; `@SpringBootTest` only for integration tests
@@ -281,17 +281,17 @@ com.transformplatform.
 
 **This is mandatory. Every PR that changes code must also update documentation.**
 
-| Change type | Files to update |
-|-------------|----------------|
-| New parser added | `SKILL.md` §6, `AGENTS.md` §6, `README.md` supported formats |
-| New writer added | `SKILL.md` §7, `AGENTS.md` §6 |
-| New correction/validation type | `AGENTS.md` §6 |
-| New env variable | `SKILL.md` §1, `AGENTS.md` §3, `.docker/env.example`, `.run/run-transform-app-local-config.xml` |
-| New module added | `AGENTS.md` §2 layout + §5 module table, `SKILL.md` §11, `README.md` |
-| Pipeline stage changed | `AGENTS.md` §5 architecture diagram |
-| New Gradle task or build change | `SKILL.md` §4 |
-| Troubleshooting insight | `SKILL.md` §12 |
-| IntelliJ / run config change | `SKILL.md` §1, `.run/` files |
+| Change type                     | Files to update                                                                                 |
+|---------------------------------|-------------------------------------------------------------------------------------------------|
+| New parser added                | `SKILL.md` §6, `AGENTS.md` §6, `README.md` supported formats                                    |
+| New writer added                | `SKILL.md` §7, `AGENTS.md` §6                                                                   |
+| New correction/validation type  | `AGENTS.md` §6                                                                                  |
+| New env variable                | `SKILL.md` §1, `AGENTS.md` §3, `.docker/env.example`, `.run/run-transform-app-local-config.xml` |
+| New module added                | `AGENTS.md` §2 layout + §5 module table, `SKILL.md` §11, `README.md`                            |
+| Pipeline stage changed          | `AGENTS.md` §5 architecture diagram                                                             |
+| New Gradle task or build change | `SKILL.md` §4                                                                                   |
+| Troubleshooting insight         | `SKILL.md` §12                                                                                  |
+| IntelliJ / run config change    | `SKILL.md` §1, `.run/` files                                                                    |
 
 ---
 
@@ -314,14 +314,14 @@ Before opening a PR, verify:
 
 ## 11. What NOT to Do
 
-| Do not | Reason |
-|--------|--------|
-| Add `flyway-database-postgresql` dependency | Does not exist in Flyway 9.x (Boot 3.2.3 BOM) |
-| Enable `bootJar` on `platform-pipeline` or `platform-scheduler` | No main class — will fail build |
+| Do not                                                             | Reason                                                                                              |
+|--------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|
+| Add `flyway-database-postgresql` dependency                        | Does not exist in Flyway 9.x (Boot 3.2.3 BOM)                                                       |
+| Enable `bootJar` on `platform-pipeline` or `platform-scheduler`    | No main class — will fail build                                                                     |
 | Use `type="SpringBootApplicationConfigurationType"` in `.run/` XML | Wrong type ID — IntelliJ will silently ignore the file; use `SpringBootApplicationRunConfiguration` |
-| Load an entire file into a `List` in a parser | Breaks stream-first design; use `Flow` and `emit` |
-| Log or include raw values for `sensitive=true` fields | PII leak; always mask with `***` |
-| Throw exceptions inside `Flow { }` blocks in parsers | Creates uncollectable flow; add `ParseError` to record instead |
-| Commit a filled `.env` file | Gitignored for a reason — use `env.example` as reference |
-| Use JUnit test classes | Project is Kotest-only; JUnit Vintage is excluded from the test classpath |
-| Modify `ParserRegistry` to hard-code a new parser | Breaks Open/Closed; just annotate the new parser `@Component` |
+| Load an entire file into a `List` in a parser                      | Breaks stream-first design; use `Flow` and `emit`                                                   |
+| Log or include raw values for `sensitive=true` fields              | PII leak; always mask with `***`                                                                    |
+| Throw exceptions inside `Flow { }` blocks in parsers               | Creates uncollectable flow; add `ParseError` to record instead                                      |
+| Commit a filled `.env` file                                        | Gitignored for a reason — use `env.example` as reference                                            |
+| Use JUnit test classes                                             | Project is Kotest-only; JUnit Vintage is excluded from the test classpath                           |
+| Modify `ParserRegistry` to hard-code a new parser                  | Breaks Open/Closed; just annotate the new parser `@Component`                                       |
