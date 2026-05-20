@@ -46,24 +46,20 @@ class OtelLoggingConfig(
     private val deploymentEnv: String,
 ) {
     @Bean
-    fun openTelemetryAppenderInstaller(): ApplicationRunner =
-        ApplicationRunner { OpenTelemetryAppender.install(buildOpenTelemetry()) }
+    fun openTelemetryAppenderInstaller(): ApplicationRunner = ApplicationRunner { OpenTelemetryAppender.install(buildOpenTelemetry()) }
 
     // ── Builder pipeline ──────────────────────────────────────────────────────
 
-    private fun buildOpenTelemetry(): OpenTelemetrySdk =
-        OpenTelemetrySdk.builder()
-            .setLoggerProvider(buildLoggerProvider())
-            .build()
+    private fun buildOpenTelemetry(): OpenTelemetrySdk = OpenTelemetrySdk.builder()
+        .setLoggerProvider(buildLoggerProvider())
+        .build()
 
-    private fun buildLoggerProvider(): SdkLoggerProvider =
-        SdkLoggerProvider.builder()
-            .setResource(buildResource())
-            .addLogRecordProcessor(BatchLogRecordProcessor.builder(buildExporter()).build())
-            .build()
+    private fun buildLoggerProvider(): SdkLoggerProvider = SdkLoggerProvider.builder()
+        .setResource(buildResource())
+        .addLogRecordProcessor(BatchLogRecordProcessor.builder(buildExporter()).build())
+        .build()
 
-    private fun buildResource(): Resource =
-        // AttributeKey.stringKey() avoids a dep on opentelemetry-semconv,
+    private fun buildResource(): Resource = // AttributeKey.stringKey() avoids a dep on opentelemetry-semconv,
         // which is not part of the opentelemetry-bom in Spring Boot 3.2.x.
         Resource.getDefault().toBuilder()
             .put(AttributeKey.stringKey("service.name"), serviceName)
@@ -72,8 +68,7 @@ class OtelLoggingConfig(
             .put(AttributeKey.stringKey("deployment.environment"), deploymentEnv)
             .build()
 
-    private fun buildExporter(): OtlpHttpLogRecordExporter =
-        OtlpHttpLogRecordExporter.builder()
-            .setEndpoint(logsEndpoint)
-            .build()
+    private fun buildExporter(): OtlpHttpLogRecordExporter = OtlpHttpLogRecordExporter.builder()
+        .setEndpoint(logsEndpoint)
+        .build()
 }

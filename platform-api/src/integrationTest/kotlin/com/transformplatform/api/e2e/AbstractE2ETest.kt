@@ -10,36 +10,40 @@ import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
+import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.containers.wait.strategy.Wait
-import org.testcontainers.junit.jupiter.Container
-import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.utility.DockerImageName
 
 /**
  * Base class for all end-to-end integration tests.
  *
- * Spins up:
- *  - **PostgreSQL 15** (Testcontainers) — full schema applied via Flyway on every boot
- *  - **MinIO** (Testcontainers) — S3-compatible archival store
+ * Uses the **Singleton Container pattern**: containers are started once in the
+ * companion object `init` block and are never stopped by the JUnit 5 extension
+ * (no `@Container` annotation).  This guarantees:
  *
- * [DynamicRouteManager] is replaced with a MockK mock so that no real Camel routes
- * are registered (we have no real SFTP/FTP/S3 servers in CI).  This lets us focus
- * E2E tests entirely on the REST API ↔ database ↔ MinIO flow.
+ *  1. The same container ports are used for ALL test classes in one Gradle run.
+ *  2. Spring's context cache works correctly — the context created for the
+ *     first test class is reused by subsequent classes at the same DB URL.
  *
- * All containers are **static** (shared across all tests in the JVM) so they start
- * only once per test run.
+ * Containers started:
+ *  - **PostgreSQL 15** — schema initialised by `db/schema.sql` (IF NOT EXISTS,
+ *    so the script is safe to re-run when containers are reused across runs).
+ *  - **MinIO** — S3-compatible archival store used by [S3ArchivalService].
+ *
+ * [DynamicRouteManager] and [KafkaTemplate] are replaced with MockK mocks so
+ * that no real Camel or Kafka brokers are needed.
  */
 @SpringBootTest(
     classes = [TransformPlatformApplication::class],
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
 )
 @ActiveProfiles("integration-test")
-@Testcontainers
 abstract class AbstractE2ETest {
 
     // ── Mocked Camel route manager ─────────────────────────────────────────────
@@ -48,8 +52,19 @@ abstract class AbstractE2ETest {
     @MockkBean(relaxed = true)
     lateinit var dynamicRouteManager: DynamicRouteManager
 
+    // ── Mocked KafkaTemplate ───────────────────────────────────────────────────
+    // KafkaAutoConfiguration is excluded in the integration-test profile, so no
+    // real KafkaTemplate bean is created. KafkaRecordWriter depends on it — this
+    // mock satisfies the dependency without needing a real Kafka broker.
+
+    @MockkBean(relaxed = true)
+    lateinit var kafkaTemplate: KafkaTemplate<String, String>
+
     @Autowired
     lateinit var restTemplate: TestRestTemplate
+
+    @Autowired
+    lateinit var jdbcTemplate: JdbcTemplate
 
     @BeforeEach
     fun setupMocks() {
@@ -60,24 +75,54 @@ abstract class AbstractE2ETest {
         every { dynamicRouteManager.reloadRoute(any()) } just Runs
     }
 
+    /**
+     * Truncate all business tables before each test.
+     *
+     * Containers are reused across test runs (withReuse=true), so data from
+     * a previous ./gradlew integrationTest invocation would persist and cause
+     * unique-constraint conflicts (e.g. spec name/version already exists).
+     * Truncating here gives each test method a clean slate.
+     */
+    @BeforeEach
+    fun cleanAllTables() {
+        // Truncate in a single statement; CASCADE handles FK-dependent tables.
+        jdbcTemplate.execute(
+            """
+            TRUNCATE TABLE
+                workflow_step_executions,
+                window_action_executions,
+                file_log,
+                window_events,
+                windows,
+                file_specs,
+                profiles,
+                downloaded_files,
+                service_integrations
+            RESTART IDENTITY CASCADE
+            """.trimIndent(),
+        )
+    }
+
     companion object {
 
-        // ── PostgreSQL container ───────────────────────────────────────────────
-        @Container
-        @JvmStatic
+        // ── Singleton containers (started once per JVM, never stopped by JUnit) ──
+        //
+        // NOT annotated with @Container so the JUnit 5 Testcontainers extension
+        // does not manage their lifecycle.  Starting them here (init block) means
+        // they are alive for the entire Gradle test run — all subclasses share the
+        // same ports, so the Spring context cache works correctly across classes.
+
         val postgres: PostgreSQLContainer<*> = PostgreSQLContainer(
             DockerImageName.parse("postgres:15-alpine"),
         ).apply {
             withDatabaseName("transform_platform_test")
             withUsername("test_user")
             withPassword("test_pass")
-            withReuse(true) // reuse between Gradle test tasks (faster CI)
+            // Idempotent IF NOT EXISTS schema — safe to re-run on container reuse.
+            withInitScript("db/schema.sql")
+            withReuse(true)
         }
 
-        // ── MinIO container ────────────────────────────────────────────────────
-        // Used by S3ArchivalService for file storage
-        @Container
-        @JvmStatic
         val minio: GenericContainer<*> = GenericContainer(
             DockerImageName.parse("minio/minio:RELEASE.2024-03-21T23-13-43Z"),
         ).apply {
@@ -93,18 +138,23 @@ abstract class AbstractE2ETest {
             withReuse(true)
         }
 
+        init {
+            // Start both containers once.  withReuse(true) returns immediately if
+            // a matching container is already running (subsequent Gradle runs).
+            postgres.start()
+            minio.start()
+        }
+
         // ── Dynamic Spring Boot properties ────────────────────────────────────
         // Override datasource + MinIO URLs with the container-assigned ports.
 
         @DynamicPropertySource
         @JvmStatic
         fun registerContainerProperties(registry: DynamicPropertyRegistry) {
-            // PostgreSQL
             registry.add("spring.datasource.url") { postgres.jdbcUrl }
             registry.add("spring.datasource.username") { postgres.username }
             registry.add("spring.datasource.password") { postgres.password }
 
-            // MinIO — use the mapped port so we can hit the container from the host
             registry.add("transform-platform.minio.endpoint") {
                 "http://${minio.host}:${minio.getMappedPort(9000)}"
             }

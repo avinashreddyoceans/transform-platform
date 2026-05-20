@@ -11,18 +11,28 @@
       <!-- ── App ───────────────────────────────────────────────── -->
       <env name="SPRING_PROFILES_ACTIVE" value="local" />
       <env name="PORT" value="8080" />
+      <!-- ── Database ──────────────────────────────────────────── -->
+      <env name="DB_HOST" value="localhost" />
+      <env name="DB_PORT" value="5432" />
+      <env name="DB_NAME" value="transform_platform" />
       <env name="DB_USER" value="transform_user" />
       <env name="DB_PASS" value="transform_pass" />
+      <!-- ── Kafka ──────────────────────────────────────────────── -->
       <env name="KAFKA_BROKERS" value="localhost:9092" />
+      <!-- ── Security ───────────────────────────────────────────── -->
       <env name="JWT_SECRET" value="local-dev-secret-replace-this-before-any-real-deployment" />
+      <env name="CREDENTIAL_ENCRYPTION_KEY" value="local-dev-credential-key-replace-before-any-real-deployment" />
+      <!-- ── Storage (local filesystem) ────────────────────────── -->
       <env name="TEMP_DIR" value="/tmp/transform-platform" />
       <env name="ENCRYPTION_ENABLED" value="false" />
-      <!-- ── Storage ──────────────────────────────────────────── -->
+      <!-- ── MinIO ──────────────────────────────────────────────── -->
       <env name="MINIO_ENDPOINT" value="http://localhost:9000" />
       <env name="MINIO_ACCESS_KEY" value="minioadmin" />
       <env name="MINIO_SECRET_KEY" value="minioadmin" />
+      <env name="MINIO_BUCKET" value="transform-downloads" />
       <!-- ── OTel (matches otel.* in application.yml) ─────────── -->
-      <!-- All signals pushed via OTLP HTTP/protobuf to the local OTel Collector -->
+      <!-- Set OTEL_ENABLED=false if the Docker stack is not running -->
+      <env name="OTEL_ENABLED" value="false" />
       <env name="OTEL_COLLECTOR_HOST" value="localhost" />
       <env name="OTEL_EXPORTER_OTLP_PROTOCOL" value="http/protobuf" />
     </envs>

@@ -16,7 +16,26 @@
       "Bash(./gradlew :platform-core:test:*)",
       "Bash(git check-ignore:*)",
       "Bash(./gradlew :platform-api:dependencies:*)",
-      "Bash(jar tf:*)"
+      "Bash(jar tf:*)",
+      "Bash(./gradlew clean:*)",
+      "Bash(./gradlew :platform-api:test:*)",
+      "Bash(xargs grep:*)",
+      "Bash(xargs cat:*)",
+      "Bash(./gradlew :platform-api:bootRun:*)",
+      "Bash(DB_USER=transform_user DB_PASS=transform_pass KAFKA_BROKERS=localhost:9092 PORT=8080 JWT_SECRET=local-dev-secret TEMP_DIR=/tmp/transform-platform ENCRYPTION_ENABLED=false SPRING_PROFILES_ACTIVE=local ./gradlew :platform-api:bootRun:*)",
+      "Bash(lsof:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker ps:*)",
+      "Bash(python3:*)",
+      "Bash(docker exec:*)",
+      "Bash(./gradlew :platform-scheduler:ktlintMainSourceSetCheck:*)",
+      "Bash(./gradlew :platform-api:integrationTest:*)",
+      "Bash(./gradlew :platform-api:processIntegrationTestResources:*)",
+      "Bash(~/.testcontainers.properties:*)",
+      "Bash(grep:*)",
+      "Bash(tee /tmp/it-output.txt)",
+      "Read(//tmp/**)",
+      "Bash(./gradlew:*)"
     ]
   }
 }

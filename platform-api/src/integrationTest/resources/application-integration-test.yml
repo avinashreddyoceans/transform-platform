@@ -1,6 +1,11 @@
 # ── Integration (E2E) test profile ────────────────────────────────────────────
 # Applied on top of application.yml when @ActiveProfiles("integration-test") is set.
 # Testcontainers overrides datasource + MinIO properties via @DynamicPropertySource.
+#
+# Schema management: Testcontainers starts a fresh PostgreSQL container for each
+# test run and initialises it using the init scripts mounted at
+# /docker-entrypoint-initdb.d/ via @DynamicPropertySource or the JDBC URL
+# TC_INITSCRIPT parameter. No Flyway needed — the container is always clean.
 
 spring:
   # Disable Kafka auto-configuration — not relevant to integration-service E2E tests
@@ -10,22 +15,14 @@ spring:
 
   jpa:
     hibernate:
-      # 'validate' would re-validate schema on each test boot — use 'none' since
-      # Flyway already manages the schema and schema validation slows CI
+      # Schema is created by the Testcontainers init script (db/schema.sql in
+      # src/integrationTest/resources — uses IF NOT EXISTS so it is idempotent
+      # when withReuse(true) containers are reused across test runs).
       ddl-auto: none
     show-sql: true
     properties:
       hibernate:
         format_sql: true
-
-  flyway:
-    enabled: true
-    locations: classpath:db/migration/current
-    # Flyway 10+ disables clean by default — must explicitly re-enable it.
-    # Without clean-disabled: false, clean-on-validation-error silently fails.
-    clean-disabled: false
-    # Clean + migrate on each test run so we always start fresh
-    clean-on-validation-error: true
 
 transform-platform:
   security:
@@ -45,5 +42,4 @@ camel:
 logging:
   level:
     com.transformplatform: DEBUG
-    org.flywaydb: INFO
     org.testcontainers: INFO

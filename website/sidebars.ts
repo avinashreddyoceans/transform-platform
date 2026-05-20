@@ -51,6 +51,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'domain/window',
         'domain/action',
+        'domain/workflow-execution',
         'domain/profile',
         'domain/zero-code-onboarding',
       ],

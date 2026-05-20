@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import mu.KotlinLogging
 import org.slf4j.MDC
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
@@ -48,6 +49,7 @@ private val log = KotlinLogging.logger {}
  * append time and attaches trace/span IDs as log record attributes automatically.
  */
 @Component
+@ConditionalOnBean(Tracer::class)
 @Order(Ordered.HIGHEST_PRECEDENCE + 2)
 class TracingMdcFilter(private val tracer: Tracer) : OncePerRequestFilter() {
 

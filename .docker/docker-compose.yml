@@ -1,29 +1,57 @@
 version: '3.9'
 
 # Local infrastructure for transform-platform development.
-# Usage: docker compose -f .docker/docker-compose.yml up -d
 #
-# Services:  PostgreSQL 16 · Kafka (Confluent 7.6) · Zookeeper · Kafka UI
-#            OTel Collector · Jaeger · Prometheus · Grafana · Elasticsearch · Kibana
+# ── Profiles ──────────────────────────────────────────────────────────────────
+# Three profiles let you compose only what you need:
 #
-# Ports:
+#   core          — Postgres · pgAdmin · Kafka · Zookeeper · Kafka UI · MinIO
+#                   ~1.5 GB total.  Use this for day-to-day development.
+#
+#   observability — OTel Collector · Jaeger · Prometheus · Grafana
+#                   · Elasticsearch · Kibana
+#                   +~2 GB on top of core.  Start only when debugging
+#                   traces / metrics / logs.
+#
+#   sftp          — Custom SFTP server (atmoz/sftp + inotify watcher)
+#                   inbox / outbox / sent folder semantics, ~128 MB.
+#                   Connect with FileZilla: localhost:2222  sftpuser/sftppass
+#
+# Usage:
+#   Core only (fast, lean):
+#     docker compose -f .docker/docker-compose.yml --profile core up -d
+#
+#   Core + SFTP (for CAMT.053 end-to-end demo):
+#     docker compose -f .docker/docker-compose.yml --profile core --profile sftp up -d
+#
+#   Full stack (all services):
+#     docker compose -f .docker/docker-compose.yml --profile core --profile observability --profile sftp up -d
+#
+#   Stop everything and remove volumes (fresh DB):
+#     docker compose -f .docker/docker-compose.yml --profile core --profile observability --profile sftp down -v
+#
+# ── Ports ─────────────────────────────────────────────────────────────────────
 #   Postgres       → 5432
+#   pgAdmin        → 5050  (admin@transform.local / admin)
 #   Kafka          → 9092  |  Kafka UI  → 8090
 #   MinIO          → 9000 (API / SDK), 9001 (console UI)
+#   SFTP           → 2222  (sftpuser / sftppass)
 #   OTel Collector → 4317 (gRPC), 4318 (HTTP), 8889 (metrics)
 #   Jaeger         → 16686 (UI)
 #   Prometheus     → 9090
-#   Grafana        → 3001  (admin / admin)  ← 3000 reserved for Docusaurus dev server
+#   Grafana        → 3001  (admin / admin)
 #   Elasticsearch  → 9200
 #   Kibana         → 5601
 
 services:
 
   # ── Data Layer ────────────────────────────────────────────────────────────
+  # Budget: ~150 MB
 
   postgres:
     image: postgres:16-alpine
     container_name: transform-postgres
+    profiles: [core]
     environment:
       POSTGRES_DB: transform_platform
       POSTGRES_USER: transform_user
@@ -32,6 +60,13 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # ── Schema bootstrap ────────────────────────────────────────────────────
+      # Postgres runs every *.sql file in /docker-entrypoint-initdb.d/ on the
+      # very first start (when the data volume is empty / container is recreated).
+      # schema.sql is the single source of truth for the full database schema.
+      # No migration versioning — just drop the volume and recreate to reset.
+      - ../platform-api/src/main/resources/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    mem_limit: 256m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U transform_user -d transform_platform"]
       interval: 10s
@@ -39,19 +74,46 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # Budget: ~200 MB
+  pgadmin:
+    image: dpage/pgadmin4:8.6
+    container_name: transform-pgadmin
+    profiles: [core]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@transform.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"          # desktop mode — no login prompt
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin-servers.json:/pgadmin4/servers.json:ro   # pre-register the Postgres server
+    mem_limit: 256m
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   # ── Messaging ─────────────────────────────────────────────────────────────
+  # Budget: Zookeeper ~128 MB · Kafka ~320 MB · Kafka UI ~200 MB
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
     container_name: transform-zookeeper
+    profiles: [core]
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      # Cap JVM heap — default is 512 MB which is far more than needed for local dev.
+      KAFKA_HEAP_OPTS: "-Xms64m -Xmx96m"
+    mem_limit: 192m
     restart: unless-stopped
 
   kafka:
     image: confluentinc/cp-kafka:7.6.0
     container_name: transform-kafka
+    profiles: [core]
     depends_on:
       - zookeeper
     ports:
@@ -64,6 +126,9 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_LOG_RETENTION_HOURS: 24
+      # Cap JVM heap — Confluent's default is 1 GB; 256 MB is plenty for local dev.
+      KAFKA_HEAP_OPTS: "-Xms128m -Xmx256m"
+    mem_limit: 384m
     healthcheck:
       test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
       interval: 15s
@@ -74,6 +139,7 @@ services:
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: transform-kafka-ui
+    profiles: [core]
     depends_on:
       - kafka
     ports:
@@ -81,13 +147,18 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      # Limit Spring Boot heap inside kafka-ui
+      JAVA_OPTS: "-Xms64m -Xmx128m"
+    mem_limit: 256m
     restart: unless-stopped
 
   # ── Object Storage ────────────────────────────────────────────────────────
+  # Budget: ~128 MB (Go binary, very lean)
 
   minio:
     image: minio/minio:RELEASE.2024-04-18T19-09-19Z
     container_name: transform-minio
+    profiles: [core]
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minioadmin
@@ -97,6 +168,7 @@ services:
       - "9001:9001"   # MinIO Console UI
     volumes:
       - minio_data:/data
+    mem_limit: 256m
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 10s
@@ -104,47 +176,99 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # ── SFTP Server ───────────────────────────────────────────────────────────
+  # Start with: --profile sftp
+  # Budget: ~128 MB
+  #
+  # Custom image built from .docker/sftp/Dockerfile (atmoz/sftp + inotify-tools).
+  # An inotify watcher moves files from outbox/ → sent/ the moment the platform
+  # finishes downloading them (close_nowrite event = FD closed after read-only open).
+  #
+  # Folder layout under /upload:
+  #   inbox/   — platform writes here; FileZilla / client downloads from here
+  #   outbox/  — FileZilla / client uploads here; Camel polls every 15 s
+  #   sent/    — audit archive; watcher moves downloaded outbox files here
+  #
+  # FileZilla connection:
+  #   Protocol : SFTP – SSH File Transfer Protocol
+  #   Host     : localhost   Port : 2222
+  #   User     : sftpuser    Pass : sftppass   Remote : /upload
+  #
+  # Drop a test file into outbox (no FileZilla needed):
+  #   docker cp camt053_sample_file.xml \
+  #     transform-sftp:/home/sftpuser/upload/outbox/camt053_$(date +%Y%m%d_%H%M%S).xml
+  #
+  # Watch watcher events live:
+  #   docker logs -f transform-sftp
+  #
+  # Full connection guide: .docker/sftp/SFTP-SETUP.md
+
+  sftp:
+    build:
+      context: ./sftp
+      dockerfile: Dockerfile
+    image: transform-sftp:latest
+    container_name: transform-sftp
+    profiles: [sftp]
+    ports:
+      - "2222:22"
+    command: ["sftpuser:sftppass:1001"]
+    volumes:
+      - sftp_data:/home/sftpuser/upload
+    mem_limit: 128m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/sftp-healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
   # ── Observability Stack ───────────────────────────────────────────────────
+  # Start with: --profile observability
+  # Combined budget: ~2.0 GB  (Elasticsearch is the dominant consumer)
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.98.0
     container_name: transform-otel-collector
+    profiles: [observability]
     command: ["--config=/etc/otel/config.yaml"]
     volumes:
       - ./otel-collector-config.yaml:/etc/otel/config.yaml:ro
-      # No log-file bind-mount needed — app pushes all signals via OTLP HTTP (:4318).
     ports:
       - "4317:4317"   # OTLP gRPC  (available but not used by the app)
       - "4318:4318"   # OTLP HTTP  (app sends traces + metrics + logs here)
       - "8889:8889"   # Prometheus metrics exporter (scraped by Prometheus)
       - "13133:13133" # Health check
+    mem_limit: 128m
     depends_on:
       jaeger:
         condition: service_started
       elasticsearch:
-        condition: service_healthy   # wait for ES to be ready before starting pipelines
+        condition: service_healthy
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:13133/"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    # No healthcheck: distroless image — no shell/curl available.
+    # Verify manually at http://localhost:13133/ if needed.
 
   jaeger:
     image: jaegertracing/all-in-one:1.56
     container_name: transform-jaeger
+    profiles: [observability]
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
       SPAN_STORAGE_TYPE: memory
-      MEMORY_MAX_TRACES: 50000
+      # Reduced from 50 000 — more than enough for local debugging sessions.
+      MEMORY_MAX_TRACES: 10000
     ports:
       - "16686:16686" # Jaeger UI
       - "14250:14250" # gRPC receiver (from OTel Collector)
+    mem_limit: 256m
     restart: unless-stopped
 
   prometheus:
     image: prom/prometheus:v2.51.2
     container_name: transform-prometheus
+    profiles: [observability]
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.retention.time=7d"
@@ -155,6 +279,7 @@ services:
       - prometheus_data:/prometheus
     ports:
       - "9090:9090"
+    mem_limit: 256m
     depends_on:
       - otel-collector
     restart: unless-stopped
@@ -162,6 +287,7 @@ services:
   grafana:
     image: grafana/grafana:10.4.2
     container_name: transform-grafana
+    profiles: [observability]
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
@@ -173,6 +299,7 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
       - "3001:3000"   # 3000 is reserved for the Docusaurus dev server (website/)
+    mem_limit: 256m
     depends_on:
       - prometheus
       - jaeger
@@ -181,10 +308,13 @@ services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.2
     container_name: transform-elasticsearch
+    profiles: [observability]
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      # Reduced heap: 256 MB is enough for local log search.
+      # ES also uses off-heap (Lucene file cache) — mem_limit gives it headroom.
+      - ES_JAVA_OPTS=-Xms256m -Xmx256m
       - cluster.name=transform-local
       - bootstrap.memory_lock=true
     ulimits:
@@ -195,6 +325,7 @@ services:
       - elasticsearch_data:/usr/share/elasticsearch/data
     ports:
       - "9200:9200"
+    mem_limit: 768m
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
       interval: 15s
@@ -205,11 +336,15 @@ services:
   kibana:
     image: docker.elastic.co/kibana/kibana:8.13.2
     container_name: transform-kibana
+    profiles: [observability]
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
       XPACK_SECURITY_ENABLED: "false"
+      # Restrict Node.js heap inside Kibana
+      NODE_OPTIONS: "--max-old-space-size=256"
     ports:
       - "5601:5601"
+    mem_limit: 512m
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -225,6 +360,7 @@ services:
   kibana-setup:
     image: curlimages/curl:8.6.0
     container_name: transform-kibana-setup
+    profiles: [observability]
     depends_on:
       kibana:
         condition: service_healthy
@@ -242,7 +378,10 @@ services:
 
 volumes:
   postgres_data:
+  pgadmin_data:
   minio_data:
+  sftp_data:
+    name: transform-sftp-data
   prometheus_data:
   grafana_data:
   elasticsearch_data:

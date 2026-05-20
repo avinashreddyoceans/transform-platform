@@ -57,6 +57,10 @@ Open: http://localhost:8080/swagger-ui
 ```bash
 ./gradlew test
 ```
+### Run Integrations Tests
+```bash
+./gradlew clean build -x integrationTest
+```
 
 ## Creating a Spec
 

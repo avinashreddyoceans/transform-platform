@@ -123,6 +123,10 @@ class SftpFtpRouteBuilder(
         // Keep connection alive across poll cycles
         append("&soTimeout=30000")
         append("&connectTimeout=10000")
+        // Disable strict host key checking so we can connect to local/dev SFTP
+        // servers without pre-populating known_hosts.  Override per-integration
+        // in production by setting knownHostsFile instead.
+        append("&strictHostKeyChecking=no")
     }
 
     private fun buildFtpUri(d: FtpDetails, directory: String): String = buildString {
