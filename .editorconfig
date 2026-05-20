@@ -1,0 +1,29 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_size = 4
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{kt,kts}]
+# ktlint rules
+ktlint_code_style = intellij_idea
+
+# Unused imports are flagged as errors
+ktlint_standard_no-unused-imports = enabled
+
+# No wildcard / star imports
+ktlint_standard_no-wildcard-imports = enabled
+
+# Import ordering — stdlib, then third-party, then project-local (blank line between groups)
+ktlint_standard_import-ordering = enabled
+
+# Trailing commas on multi-line signatures (always | never | multiline | multiline_if_possible)
+ktlint_standard_trailing-comma-on-call-site = multiline_if_possible
+ktlint_standard_trailing-comma-on-declaration-site = multiline_if_possible
+
+# Max line length
+max_line_length = 140

@@ -1,0 +1,15 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Transform Platform (local)",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "transform_platform",
+      "Username": "transform_user",
+      "Password": "transform_pass",
+      "SSLMode": "prefer",
+      "PassFile": "/dev/null"
+    }
+  }
+}

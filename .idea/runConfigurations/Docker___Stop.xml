@@ -1,0 +1,20 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false"
+                 name="Docker — Stop (keep data)"
+                 type="ShConfigurationType"
+                 factoryName="Shell Script">
+    <!-- Stops all containers but preserves volumes (Postgres data, MinIO files, etc.).
+         Use this for a normal shutdown where you want to resume from the same state. -->
+    <option name="SCRIPT_TEXT" value="docker compose -f .docker/docker-compose.yml --profile core --profile observability down" />
+    <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
+    <option name="SCRIPT_PATH" value="" />
+    <option name="SCRIPT_OPTIONS" value="" />
+    <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
+    <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
+    <option name="INTERPRETER_PATH" value="/bin/sh" />
+    <option name="INTERPRETER_OPTIONS" value="" />
+    <option name="EXECUTE_IN_TERMINAL" value="true" />
+    <option name="EXECUTE_SCRIPT_FILE" value="false" />
+  </configuration>
+</component>

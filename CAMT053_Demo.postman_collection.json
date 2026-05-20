@@ -1,0 +1,471 @@
+{
+  "info": {
+    "name": "CAMT.053 End-to-End Demo",
+    "description": "Walks through the full CAMT.053 parsing pipeline:\n1. Create FileSpec\n2. Create SFTP + Kafka integrations\n3. Create & enable a Profile\n4. Open a window\n5. Simulate file arrival\n6. Monitor execution\n\nIDs are automatically captured from each response and injected into later requests — just run the folders in order.\n\nSet the `baseUrl` variable to your target environment before running (default: http://localhost:8080).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string",
+      "description": "Base URL of the Transform Platform API"
+    },
+    {
+      "key": "specId",
+      "value": "",
+      "type": "string",
+      "description": "Populated automatically after Step 1"
+    },
+    {
+      "key": "sftpIntegrationId",
+      "value": "",
+      "type": "string",
+      "description": "Populated automatically after Step 2a"
+    },
+    {
+      "key": "kafkaIntegrationId",
+      "value": "",
+      "type": "string",
+      "description": "Populated automatically after Step 2b"
+    },
+    {
+      "key": "profileId",
+      "value": "",
+      "type": "string",
+      "description": "Populated automatically after Step 3"
+    },
+    {
+      "key": "windowId",
+      "value": "",
+      "type": "string",
+      "description": "Populated automatically after Step 5"
+    },
+    {
+      "key": "execId",
+      "value": "",
+      "type": "string",
+      "description": "Populated automatically after Step 7a"
+    }
+  ],
+  "item": [
+    {
+      "name": "Step 1 — Create CAMT.053 FileSpec",
+      "item": [
+        {
+          "name": "Create FileSpec",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200 or 201\", () => {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Response has id\", () => pm.expect(json).to.have.property('id'));",
+                  "",
+                  "if (json.id) {",
+                  "    pm.collectionVariables.set('specId', json.id);",
+                  "    console.log('✅ FileSpec created:', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/specs",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"CAMT.053 Bank Statement Entry\",\n  \"description\": \"ISO 20022 BankToCustomerStatement - Ntry level parser\",\n  \"version\": \"1.0\",\n  \"format\": \"ISO20022\",\n  \"encoding\": \"UTF-8\",\n  \"hasHeader\": false,\n  \"fields\": [\n    {\n      \"name\": \"statementId\",\n      \"displayName\": \"Statement ID\",\n      \"type\": \"STRING\",\n      \"path\": \"/Document/BkToCstmrStmt/Stmt/Id\",\n      \"required\": true,\n      \"description\": \"Unique statement identifier from the bank\"\n    },\n    {\n      \"name\": \"iban\",\n      \"displayName\": \"IBAN\",\n      \"type\": \"STRING\",\n      \"path\": \"/Document/BkToCstmrStmt/Stmt/Acct/Id/IBAN\",\n      \"required\": true,\n      \"description\": \"IBAN of the account the statement belongs to\"\n    },\n    {\n      \"name\": \"currency\",\n      \"displayName\": \"Currency\",\n      \"type\": \"STRING\",\n      \"path\": \"/Document/BkToCstmrStmt/Stmt/Acct/Ccy\",\n      \"required\": false,\n      \"defaultValue\": \"USD\",\n      \"description\": \"ISO 4217 currency code for the account\"\n    },\n    {\n      \"name\": \"entryRef\",\n      \"displayName\": \"Entry Reference\",\n      \"type\": \"STRING\",\n      \"path\": \"/Document/BkToCstmrStmt/Stmt/Ntry/NtryRef\",\n      \"required\": true,\n      \"description\": \"Bank-assigned reference for this entry (debit or credit)\"\n    },\n    {\n      \"name\": \"amount\",\n      \"displayName\": \"Amount\",\n      \"type\": \"AMOUNT\",\n      \"path\": \"/Document/BkToCstmrStmt/Stmt/Ntry/Amt\",\n      \"required\": true,\n      \"scale\": 2,\n      \"description\": \"Transaction amount\"\n    },\n    {\n      \"name\": \"creditDebitIndicator\",\n      \"displayName\": \"Credit/Debit\",\n      \"type\": \"ENUM\",\n      \"path\": \"/Document/BkToCstmrStmt/Stmt/Ntry/CdtDbtInd\",\n      \"required\": true,\n      \"allowedValues\": [\"CRDT\", \"DBIT\"],\n      \"description\": \"CRDT = credit (money in); DBIT = debit (money out)\"\n    },\n    {\n      \"name\": \"bookingDate\",\n      \"displayName\": \"Booking Date\",\n      \"type\": \"DATE\",\n      \"path\": \"/Document/BkToCstmrStmt/Stmt/Ntry/BookgDt/Dt\",\n      \"required\": false,\n      \"format\": \"yyyy-MM-dd\",\n      \"description\": \"Date the entry was booked on the bank ledger\"\n    },\n    {\n      \"name\": \"valueDate\",\n      \"displayName\": \"Value Date\",\n      \"type\": \"DATE\",\n      \"path\": \"/Document/BkToCstmrStmt/Stmt/Ntry/ValDt/Dt\",\n      \"required\": false,\n      \"format\": \"yyyy-MM-dd\",\n      \"description\": \"Value date (when funds are available)\"\n    },\n    {\n      \"name\": \"bankTxCode\",\n      \"displayName\": \"Bank Transaction Code\",\n      \"type\": \"STRING\",\n      \"path\": \"/Document/BkToCstmrStmt/Stmt/Ntry/BkTxCd/Domn/Cd\",\n      \"required\": false,\n      \"description\": \"Bank-specific transaction code domain (e.g. PMNT)\"\n    },\n    {\n      \"name\": \"txFamily\",\n      \"displayName\": \"Transaction Family\",\n      \"type\": \"STRING\",\n      \"path\": \"/Document/BkToCstmrStmt/Stmt/Ntry/BkTxCd/Domn/Fmly/Cd\",\n      \"required\": false,\n      \"description\": \"Transaction family code (e.g. ICDT = Inward Credit Transfer)\"\n    },\n    {\n      \"name\": \"endToEndId\",\n      \"displayName\": \"End-to-End ID\",\n      \"type\": \"STRING\",\n      \"path\": \"/Document/BkToCstmrStmt/Stmt/Ntry/NtryDtls/TxDtls/Refs/EndToEndId\",\n      \"required\": false,\n      \"description\": \"End-to-end reference from the original payment instruction\"\n    },\n    {\n      \"name\": \"remittanceInfo\",\n      \"displayName\": \"Remittance Information\",\n      \"type\": \"STRING\",\n      \"path\": \"/Document/BkToCstmrStmt/Stmt/Ntry/NtryDtls/TxDtls/RmtInf/Ustrd\",\n      \"required\": false,\n      \"maxLength\": 140,\n      \"description\": \"Unstructured remittance info (payment reference text)\"\n    },\n    {\n      \"name\": \"debtorName\",\n      \"displayName\": \"Debtor Name\",\n      \"type\": \"STRING\",\n      \"path\": \"/Document/BkToCstmrStmt/Stmt/Ntry/NtryDtls/TxDtls/RltdPties/Dbtr/Nm\",\n      \"required\": false,\n      \"description\": \"Name of the debtor party\"\n    },\n    {\n      \"name\": \"debtorIban\",\n      \"displayName\": \"Debtor IBAN\",\n      \"type\": \"STRING\",\n      \"path\": \"/Document/BkToCstmrStmt/Stmt/Ntry/NtryDtls/TxDtls/RltdPties/DbtrAcct/Id/IBAN\",\n      \"required\": false,\n      \"sensitive\": true,\n      \"description\": \"IBAN of the debtor account (masked in logs)\"\n    },\n    {\n      \"name\": \"creditorName\",\n      \"displayName\": \"Creditor Name\",\n      \"type\": \"STRING\",\n      \"path\": \"/Document/BkToCstmrStmt/Stmt/Ntry/NtryDtls/TxDtls/RltdPties/Cdtr/Nm\",\n      \"required\": false,\n      \"description\": \"Name of the creditor party\"\n    }\n  ],\n  \"validationRules\": [\n    {\n      \"ruleId\": \"vr-001\",\n      \"field\": \"amount\",\n      \"ruleType\": \"MIN_VALUE\",\n      \"value\": \"0\",\n      \"message\": \"Amount must be non-negative\",\n      \"severity\": \"ERROR\"\n    },\n    {\n      \"ruleId\": \"vr-002\",\n      \"field\": \"entryRef\",\n      \"ruleType\": \"NOT_EMPTY\",\n      \"message\": \"Entry reference must not be empty\",\n      \"severity\": \"ERROR\"\n    },\n    {\n      \"ruleId\": \"vr-003\",\n      \"field\": \"iban\",\n      \"ruleType\": \"REGEX\",\n      \"value\": \"^[A-Z]{2}[0-9]{2}[A-Z0-9]{4}[0-9]{7}([A-Z0-9]?){0,16}$\",\n      \"message\": \"IBAN format invalid\",\n      \"severity\": \"WARNING\"\n    }\n  ],\n  \"correctionRules\": [\n    {\n      \"ruleId\": \"cr-001\",\n      \"field\": \"remittanceInfo\",\n      \"correctionType\": \"TRIM\",\n      \"applyOrder\": 1\n    },\n    {\n      \"ruleId\": \"cr-002\",\n      \"field\": \"debtorName\",\n      \"correctionType\": \"TRIM\",\n      \"applyOrder\": 2\n    }\n  ],\n  \"metadata\": {\n    \"standard\": \"ISO 20022\",\n    \"messageType\": \"camt.053.001.02\",\n    \"namespace\": \"urn:iso:std:iso:20022:tech:xsd:camt.053.001.02\",\n    \"source\": \"Goldman Sachs TxB sample\"\n  }\n}"
+            },
+            "description": "Defines the CAMT.053 ISO 20022 XML structure with all 15 fields, 3 validation rules, and 2 correction rules.\n\nThe response `id` is automatically saved to the `specId` collection variable for use in Step 3."
+          }
+        }
+      ],
+      "description": "Creates the FileSpec that drives XML parsing, validation, and correction for CAMT.053 BankToCustomerStatement messages."
+    },
+    {
+      "name": "Step 2 — Create Service Integrations",
+      "item": [
+        {
+          "name": "2a — Create SFTP Integration (file source)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200 or 201\", () => {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Response has id\", () => pm.expect(json).to.have.property('id'));",
+                  "",
+                  "if (json.id) {",
+                  "    pm.collectionVariables.set('sftpIntegrationId', json.id);",
+                  "    console.log('✅ SFTP Integration created:', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/integrations",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"SFTP\",\n  \"userId\": \"admin\",\n  \"shortDescription\": \"Goldman Sachs TxB SFTP\",\n  \"isEnabled\": false,\n  \"updatedBy\": \"admin\",\n  \"details\": {\n    \"host\": \"sftp.gs.com\",\n    \"port\": 22,\n    \"directories\": [\"/inbound/camt053\"],\n    \"userName\": \"acme_client\",\n    \"password\": \"changeme\",\n    \"direction\": \"INBOUND\",\n    \"filters\": [\"camt053_*.xml\"]\n  }\n}"
+            },
+            "description": "Registers the Goldman Sachs SFTP endpoint as an inbound file source.\n\nRequired fields: `type`, `userId`, `shortDescription`, `updatedBy`, `details`.\nSFTP details: `directories` is an array of remote paths to poll; `filters` is an array of Ant-style glob patterns.\n\nThe response `id` is automatically saved to the `sftpIntegrationId` collection variable."
+          }
+        },
+        {
+          "name": "2b — Set Kafka Topic Config (no API call needed)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// KAFKA is not an IntegrationType in this platform.",
+                  "// Supported types are: SFTP, FTP, S3 — file-polling integrations only.",
+                  "//",
+                  "// Kafka publishing uses the broker already wired into the app via",
+                  "// KAFKA_BROKERS env var (application.yml). The NOTIFY step in the",
+                  "// profile references a topic name directly — no integration row needed.",
+                  "//",
+                  "// We store the topic as kafkaIntegrationId so Step 3 can reference",
+                  "// it consistently via {{kafkaIntegrationId}}.",
+                  "pm.collectionVariables.set('kafkaIntegrationId', 'bank.statement.entries');",
+                  "console.log('✅ Kafka topic set to: bank.statement.entries (no registration needed)');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// This is a no-op GET — only the pre-request script matters here.",
+                  "// The GET /api/v1/integrations call just confirms the server is reachable.",
+                  "pm.test(\"Server reachable\", () => pm.response.to.have.status(200));",
+                  "console.log('✅ kafkaIntegrationId variable set to: bank.statement.entries');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/integrations",
+            "description": "ℹ️ KAFKA is not a supported IntegrationType (only SFTP, FTP, S3 are).\n\nKafka publishing is handled by the application's built-in Kafka producer (configured via KAFKA_BROKERS in application.yml / docker-compose env). No separate integration row is required.\n\nThis step uses a pre-request script to set `kafkaIntegrationId` = `bank.statement.entries` (the topic name) so Step 3's NOTIFY step config can reference it.\n\nThe GET request itself is just a health-check — the real work happens in the pre-request script."
+          }
+        }
+      ],
+      "description": "Creates both the SFTP source (where CAMT.053 files arrive) and the Kafka sink (where parsed entries are published).\n\nRun 2a before 2b — both IDs are required for Step 3."
+    },
+    {
+      "name": "Step 3 — Create Profile",
+      "item": [
+        {
+          "name": "Create Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200 or 201\", () => {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Response has id\", () => pm.expect(json).to.have.property('id'));",
+                  "",
+                  "if (json.id) {",
+                  "    pm.collectionVariables.set('profileId', json.id);",
+                  "    console.log('✅ Profile created:', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/profiles",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"ACME Bank Statement Pipeline\",\n  \"clientId\": \"acme-corp\",\n  \"description\": \"Daily CAMT.053 bank statement ingestion and Kafka forwarding\",\n  \"windowConfig\": {\n    \"openTrigger\": {\n      \"type\": \"TIME_BASED\",\n      \"openCron\": \"0 6 * * *\",\n      \"timeZone\": \"UTC\"\n    },\n    \"closeTrigger\": {\n      \"type\": \"FILE_ARRIVAL\",\n      \"integrationId\": \"{{sftpIntegrationId}}\",\n      \"filePattern\": \"camt053_*.xml\",\n      \"pollInterval\": \"PT1M\"\n    },\n    \"maxOpenDuration\": \"PT18H\",\n    \"allowEmptyClose\": false,\n    \"lateEventBehaviour\": \"REJECT\"\n  },\n  \"actions\": [\n    {\n      \"name\": \"Parse CAMT.053 and forward to Kafka\",\n      \"condition\": \"ON_FILE_ARRIVED\",\n      \"executionOrder\": 10,\n      \"continueOnFailure\": false,\n      \"steps\": [\n        {\n          \"name\": \"Parse CAMT.053 XML\",\n          \"stepType\": \"PARSE_FILE\",\n          \"executionOrder\": 1,\n          \"enabled\": true,\n          \"config\": {\n            \"fileSpecId\": \"{{specId}}\",\n            \"recordType\": \"CAMT053_ENTRY\",\n            \"failOnParseError\": false\n          },\n          \"retryPolicy\": {\n            \"maxAttempts\": 3,\n            \"initialDelay\": \"PT1S\",\n            \"backoffMultiplier\": 2.0,\n            \"maxDelay\": \"PT30S\"\n          }\n        },\n        {\n          \"name\": \"Validate entries\",\n          \"stepType\": \"VALIDATE\",\n          \"executionOrder\": 2,\n          \"enabled\": true,\n          \"config\": {\n            \"fileSpecId\": \"{{specId}}\",\n            \"rejectOnError\": false,\n            \"reportWarnings\": true\n          },\n          \"retryPolicy\": {\n            \"maxAttempts\": 1\n          }\n        },\n        {\n          \"name\": \"Publish to Kafka\",\n          \"stepType\": \"NOTIFY\",\n          \"executionOrder\": 3,\n          \"enabled\": true,\n          \"config\": {\n            \"topic\": \"bank.statement.entries\",\n            \"keyField\": \"entryRef\",\n            \"includeFields\": [\n              \"statementId\", \"iban\", \"currency\",\n              \"entryRef\", \"amount\", \"creditDebitIndicator\",\n              \"bookingDate\", \"valueDate\", \"bankTxCode\",\n              \"endToEndId\", \"remittanceInfo\"\n            ]\n          },\n          \"retryPolicy\": {\n            \"maxAttempts\": 5,\n            \"initialDelay\": \"PT2S\",\n            \"backoffMultiplier\": 2.0,\n            \"maxDelay\": \"PT60S\",\n            \"retryableErrors\": [\"TimeoutException\", \"IOException\"]\n          }\n        }\n      ]\n    },\n    {\n      \"name\": \"Alert on pipeline failure\",\n      \"condition\": \"ON_ERROR\",\n      \"executionOrder\": 10,\n      \"steps\": [\n        {\n          \"name\": \"Send failure alert\",\n          \"stepType\": \"NOTIFY\",\n          \"executionOrder\": 1,\n          \"enabled\": true,\n          \"config\": {\n            \"channel\": \"WEBHOOK\",\n            \"url\": \"https://hooks.slack.com/services/YOUR/WEBHOOK/URL\",\n            \"template\": \"CAMT.053 pipeline failed for window {{windowId}}: {{errorMessage}}\"\n          },\n          \"retryPolicy\": {\n            \"maxAttempts\": 3\n          }\n        }\n      ]\n    }\n  ],\n  \"tags\": {\n    \"client\": \"acme-corp\",\n    \"standard\": \"ISO20022\",\n    \"fileType\": \"camt053\",\n    \"environment\": \"production\"\n  },\n  \"createdBy\": \"admin\",\n  \"updatedBy\": \"admin\"\n}"
+            },
+            "description": "Creates the ACME Bank Statement Pipeline profile. References:\n- `{{specId}}` — from Step 1\n- `{{sftpIntegrationId}}` — from Step 2a\n- `{{kafkaIntegrationId}}` — from Step 2b\n\nThe profile defines:\n- Open trigger: daily cron at 06:00 UTC\n- Close trigger: FILE_ARRIVAL on the SFTP integration\n- Action chain: PARSE_FILE → VALIDATE → NOTIFY (Kafka)\n- ON_ERROR alert to Slack webhook\n\nThe response `id` is saved to `profileId`."
+          }
+        }
+      ],
+      "description": "Creates the profile that wires the FileSpec, SFTP source, and Kafka sink together into a complete pipeline. Must run after Steps 1 and 2."
+    },
+    {
+      "name": "Step 4 — Enable Profile & Verify Window",
+      "item": [
+        {
+          "name": "Enable Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "console.log('✅ Profile enabled — Quartz trigger registered');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/profiles/{{profileId}}/enable",
+            "description": "Enables the profile: registers the Quartz cron trigger and creates the first PENDING window scheduled for the next 06:00 UTC fire time."
+          }
+        },
+        {
+          "name": "Verify PENDING Window Created",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test(\"At least one window returned\", () => {",
+                  "    pm.expect(Array.isArray(json) ? json : json.content || []).to.have.length.above(0);",
+                  "});",
+                  "",
+                  "const windows = Array.isArray(json) ? json : json.content || [];",
+                  "if (windows.length > 0) {",
+                  "    pm.test(\"Window is PENDING\", () => {",
+                  "        pm.expect(windows[0].status).to.equal('PENDING');",
+                  "    });",
+                  "    console.log('✅ PENDING window confirmed:', windows[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/windows?profileId={{profileId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "windows"],
+              "query": [
+                { "key": "profileId", "value": "{{profileId}}" }
+              ]
+            },
+            "description": "Confirms the window was created in PENDING state after enabling the profile.\n\nExpected: one window with status=PENDING and a scheduledOpenAt of the next 06:00 UTC."
+          }
+        }
+      ],
+      "description": "Activates the profile and verifies the Quartz scheduler created a PENDING window."
+    },
+    {
+      "name": "Step 5 — Open Window (dev trigger)",
+      "item": [
+        {
+          "name": "Trigger Window Open",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200 or 201\", () => {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "const windowId = json.windowId || json.id;",
+                  "",
+                  "pm.test(\"Response contains windowId\", () => {",
+                  "    pm.expect(windowId).to.be.a('string').and.to.have.length.above(0);",
+                  "});",
+                  "",
+                  "if (windowId) {",
+                  "    pm.collectionVariables.set('windowId', windowId);",
+                  "    console.log('✅ Window opened:', windowId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/profiles/{{profileId}}/trigger",
+            "description": "Dev shortcut: opens the window immediately instead of waiting for the 06:00 UTC cron.\n\nIn production this is triggered automatically by the Quartz job at scheduledOpenAt.\n\nThe response windowId is saved to the `windowId` collection variable."
+          }
+        }
+      ],
+      "description": "Manually opens the window for immediate testing — bypasses the cron schedule."
+    },
+    {
+      "name": "Step 6 — Simulate File Arrival",
+      "item": [
+        {
+          "name": "Ingest CAMT.053 File",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200 or 201\", () => {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "pm.test(\"File logged in file_log\", () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('id');",
+                  "});",
+                  "",
+                  "console.log('✅ File arrival recorded — watch for workflow execution in Step 7');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/files/inbound",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"integrationId\": \"{{sftpIntegrationId}}\",\n  \"remoteIdentifier\": \"/inbound/camt053/camt053_20260322.xml\",\n  \"fileName\": \"camt053_20260322.xml\",\n  \"windowId\": \"{{windowId}}\",\n  \"profileId\": \"{{profileId}}\",\n  \"clientId\": \"acme-corp\",\n  \"fileSizeBytes\": 24576,\n  \"contentChecksum\": \"a3f4b2c1d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2\",\n  \"mimeType\": \"application/xml\"\n}"
+            },
+            "description": "Simulates the SFTP listener posting a file arrival event. In production this is called automatically by the platform-integration SFTP poller.\n\nAfter this call:\n1. FileArrivalTriggerEvaluator detects the file matches `camt053_*.xml`\n2. Window transitions OPEN → CLOSING\n3. ActionChainExecutor creates a WorkflowExecution\n4. Quartz picks up and runs: PARSE_FILE → VALIDATE → NOTIFY"
+          }
+        }
+      ],
+      "description": "Simulates a CAMT.053 file landing on the SFTP integration, which fires the window close trigger and kicks off the action chain."
+    },
+    {
+      "name": "Step 7 — Monitor Execution",
+      "item": [
+        {
+          "name": "7a — List Executions for Window",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "const executions = Array.isArray(json) ? json : json.content || [];",
+                  "",
+                  "pm.test(\"At least one execution found\", () => {",
+                  "    pm.expect(executions.length).to.be.above(0);",
+                  "});",
+                  "",
+                  "if (executions.length > 0) {",
+                  "    pm.collectionVariables.set('execId', executions[0].id);",
+                  "    console.log('✅ Execution ID captured:', executions[0].id);",
+                  "    console.log('   Status:', executions[0].status);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/windows/{{windowId}}/executions",
+            "description": "Lists all workflow executions created for this window. The first execution ID is saved to `execId` for the detail view.\n\nExpected: one execution for the ON_FILE_ARRIVED action chain with status PENDING, RUNNING, or COMPLETED."
+          }
+        },
+        {
+          "name": "7b — Get Execution Detail (steps)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "if (json.status) {",
+                  "    console.log('Execution status:', json.status);",
+                  "}",
+                  "",
+                  "if (json.steps) {",
+                  "    json.steps.forEach(step => {",
+                  "        console.log(`  Step ${step.stepIndex}: ${step.stepName} → ${step.status}`);",
+                  "    });",
+                  "}",
+                  "",
+                  "pm.test(\"Execution has status\", () => pm.expect(json).to.have.property('status'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/executions/{{execId}}",
+            "description": "Returns the full execution with step-level detail.\n\nExpected step flow:\n  Step 1: Parse CAMT.053 XML  → COMPLETED\n  Step 2: Validate entries    → COMPLETED\n  Step 3: Publish to Kafka    → COMPLETED\n  Overall: COMPLETED\n\nRe-run this request until status = COMPLETED."
+          }
+        },
+        {
+          "name": "7c — Get Window Files",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "const files = Array.isArray(json) ? json : json.content || [];",
+                  "",
+                  "pm.test(\"INBOUND file logged\", () => {",
+                  "    pm.expect(files.some(f => f.direction === 'INBOUND')).to.be.true;",
+                  "});",
+                  "",
+                  "files.forEach(f => console.log(`  ${f.direction}: ${f.fileName} [${f.status}]`));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/windows/{{windowId}}/files",
+            "description": "Verifies the INBOUND file_log entry for camt053_20260322.xml.\n\nExpected: one entry with direction=INBOUND and status=RECEIVED or PROCESSED."
+          }
+        }
+      ],
+      "description": "Polls the execution to watch the 3-step action chain progress through PARSE_FILE → VALIDATE → NOTIFY.\n\nRun 7a first to capture the execId, then 7b for step detail. Re-run 7b until status = COMPLETED."
+    }
+  ]
+}
