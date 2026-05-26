@@ -51,6 +51,10 @@ _CREATE_PRIORITY = [
     ("create_integration", "integration"),
 ]
 
+_UPDATE_PRIORITY = [
+    ("update_integration", "integration"),
+]
+
 
 # ── Payload builders ───────────────────────────────────────────────────────────
 
@@ -129,6 +133,18 @@ def _resource_created_payload(data: Any, resource_type: str) -> dict | None:
     }
 
 
+def _resource_updated_payload(data: Any, resource_type: str) -> dict | None:
+    if not isinstance(data, dict):
+        return None
+    return {
+        "type": "resource_updated",
+        "resource_type": resource_type,
+        "id": data.get("id"),
+        "name": data.get("name") or data.get("description") or data.get("shortDescription"),
+        "status": data.get("status"),
+    }
+
+
 # ── Public API ─────────────────────────────────────────────────────────────────
 
 def build_structured_payload(
@@ -141,8 +157,15 @@ def build_structured_payload(
     if not tool_results:
         return None
 
-    # Creation agents: check for created resources first
-    if agent_type in ("onboarding", "flow_builder"):
+    # All agents: check for updated resources first
+    for tool_name, resource_type in _UPDATE_PRIORITY:
+        if tool_name in tool_results:
+            payload = _resource_updated_payload(tool_results[tool_name], resource_type)
+            if payload:
+                return payload
+
+    # Creation agents: check for created resources
+    if agent_type in ("onboarding", "flow_builder", "general"):
         for tool_name, resource_type in _CREATE_PRIORITY:
             if tool_name in tool_results:
                 payload = _resource_created_payload(tool_results[tool_name], resource_type)

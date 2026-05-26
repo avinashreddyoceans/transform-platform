@@ -15,7 +15,7 @@ A built-in multi-agent AI assistant helps you set up pipelines, build file specs
 ## Architecture
 
 ```
-platform-ui      (React + Vite — served from :8080/ui/ in production, :5173 in dev)
+platform-ui      (React + Vite — served from :8080/ui/ in production, :5173/ui/ in dev)
       |
 platform-api     (Spring Boot 3.2.3 / Kotlin, port 8080)
       |                               |
@@ -39,23 +39,39 @@ platform-chatbot (FastAPI + LangGraph, port 8000)        PostgreSQL + Kafka
 - Java 21+
 - Node 18+ / npm
 - Python 3.12+
-- Docker (for PostgreSQL + Kafka)
+- Docker Desktop (must be running before any `docker compose` command)
 - An Anthropic API key (required for the AI assistant)
 
 ---
 
-## Quick start
+## Full startup guide
 
-### 1. Start infrastructure
+Follow these steps **in order**. Each service depends on the one above it.
+
+### Step 1 — Start Docker Desktop
+
+Open Docker Desktop and wait until it shows "Docker Desktop is running" in the menu bar. All infrastructure runs in Docker.
+
+### Step 2 — Start infrastructure (Postgres + Kafka)
 
 ```bash
 cd .docker
-docker compose up -d          # starts Postgres + Kafka + Zookeeper
+docker compose up -d postgres kafka zookeeper
 ```
 
-### 2. Configure environment
+Wait ~10 seconds for Postgres to accept connections before starting the API.
 
-Copy `.docker/env.example` to `.docker/.env` and fill in:
+> **Note:** If `docker compose up -d` with no service names fails with "no service selected", specify services explicitly as shown above.
+
+### Step 3 — Configure environment variables
+
+Copy the example file and fill in secrets:
+
+```bash
+cp .docker/env.example .docker/.env
+```
+
+Minimum required values in `.docker/.env`:
 
 ```
 DB_USER=transform_user
@@ -65,34 +81,72 @@ JWT_SECRET=<any-long-random-string>
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-### 3. Start the API
+The Spring Boot app also reads these as JVM env vars — they are wired in `.run/run-transform-app-local-config.xml` for IntelliJ. For the terminal, export them or prefix the `bootRun` command:
 
 ```bash
+DB_USER=transform_user DB_PASS=transform_pass KAFKA_BROKERS=localhost:9092 \
+  JWT_SECRET=local-dev-secret ANTHROPIC_API_KEY=sk-ant-... \
+  ./gradlew :platform-api:bootRun
+```
+
+### Step 4 — Start the Spring Boot API
+
+```bash
+# From the repo root
 ./gradlew :platform-api:bootRun
 ```
 
 The API starts on **http://localhost:8080**.
-The React UI is served at **http://localhost:8080/ui/**.
+The built React UI (production bundle) is served at **http://localhost:8080/ui/**.
 
-### 4. Start the AI chatbot
+> **Port conflict?** Kill whatever is on 8080 first:
+> ```bash
+> lsof -ti :8080 | xargs kill -9
+> ```
+
+### Step 5 — Start the AI chatbot
+
+The chatbot has its own Python virtualenv inside `platform-chatbot/.venv`.
 
 ```bash
 cd platform-chatbot
-python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -e .
-ANTHROPIC_API_KEY=sk-ant-... uvicorn src.main:app --reload --port 8000
+
+# First-time setup only
+python3 -m venv .venv
+.venv/bin/pip install -e .
+
+# Copy and fill in chatbot env
+cp .env.example .env          # set ANTHROPIC_API_KEY and TRANSFORM_API_URL
+
+# Start the server
+.venv/bin/uvicorn src.main:app --reload --port 8000
 ```
 
-Health check: **http://localhost:8080/chatbot/health**
+Health check: **http://localhost:8000/health**
+Also reachable via the Spring Boot proxy: **http://localhost:8080/chatbot/health**
 
-The chatbot is also accessible through the Spring Boot reverse proxy at `/chatbot/`.
+> **On subsequent runs** you only need:
+> ```bash
+> cd platform-chatbot && .venv/bin/uvicorn src.main:app --reload --port 8000
+> ```
+
+### Step 6 — (Optional) Start the UI in dev mode
+
+For hot-reload during frontend development:
+
+```bash
+cd platform-ui && npm install   # first time only
+npm run dev
+```
+
+Dev UI is at **http://localhost:5173/ui/**.
+Vite proxies `/api` → `:8080` and `/chatbot` → `:8000` automatically.
 
 ---
 
 ## Using the UI
 
-Open **http://localhost:8080/ui/** in your browser.
+Open **http://localhost:8080/ui/** (production) or **http://localhost:5173/ui/** (dev) in your browser.
 
 | Page | What it shows |
 |------|--------------|
@@ -113,8 +167,17 @@ Click the **AI Assistant** button in the bottom-right corner. The assistant auto
 | **General** | Everything else | Lists and fetches any platform resource |
 
 **Features in the chat panel:**
+
 - **Agent badge** — coloured chip shows which agent is active (Emerald = Onboarding, Violet = Flow Builder, Amber = Insights, Indigo = General)
-- **Wizard progress bar** — appears at the top during the Onboarding wizard, e.g. "Step 2 / 5"
+- **Named wizard steps** — during the Onboarding wizard a horizontal step indicator appears at the top: `Use Case → File Spec → Integration → Profile → Enable`, with filled circles for completed steps and the active step highlighted
+- **Structured data cards** — when an agent retrieves data, it renders inline below the text:
+  - *Profile list* — table of name, client, status
+  - *File spec list* — table of name, format badge, field count
+  - *Execution list* — table of status badge, profile, records, started date
+  - *Window list* — table of status, profile, opened/closed dates
+  - *Metrics summary* — 2×2 KPI grid (success rate, total executions, avg duration, records/day) with colour-coded success rate
+  - *Error summary* — failed execution count + ranked error category list
+  - *Resource created* — green confirmation card with resource name and ID shown after a create tool call
 - **Tool badges** — small chips under each AI response show which API tools were called
 - **New conversation** — click the refresh icon to reset context and start a fresh session
 
@@ -122,19 +185,22 @@ Click the **AI Assistant** button in the bottom-right corner. The assistant auto
 
 ## Development mode (hot-reload)
 
+Run each in a separate terminal:
+
 ```bash
-# Terminal 1 — API
-./gradlew :platform-api:bootRun
+# Terminal 1 — Spring Boot API (with env vars)
+DB_USER=transform_user DB_PASS=transform_pass KAFKA_BROKERS=localhost:9092 \
+  JWT_SECRET=local-dev-secret ANTHROPIC_API_KEY=sk-ant-... \
+  ./gradlew :platform-api:bootRun
 
-# Terminal 2 — Chatbot
-cd platform-chatbot && source .venv/bin/activate
-ANTHROPIC_API_KEY=sk-ant-... uvicorn src.main:app --reload --port 8000
+# Terminal 2 — AI chatbot
+cd platform-chatbot && .venv/bin/uvicorn src.main:app --reload --port 8000
 
-# Terminal 3 — UI (Vite HMR)
+# Terminal 3 — React UI with HMR
 cd platform-ui && npm run dev
 ```
 
-Access the UI at **http://localhost:5173** in dev mode. Vite proxies `/api` to `:8080` and `/chatbot` to `:8000`.
+Access the UI at **http://localhost:5173/ui/** in dev mode.
 
 ---
 
@@ -154,7 +220,7 @@ The fat JAR includes the React UI. No separate frontend server needed.
 
 ```bash
 cp .docker/env.example .docker/.env   # fill in ANTHROPIC_API_KEY and secrets
-docker compose -f .docker/docker-compose.yml --profile core up -d
+docker compose -f .docker/docker-compose.yml up -d postgres kafka zookeeper
 ```
 
 | Service | URL |
@@ -237,9 +303,10 @@ Sessions are in-memory with a 2-hour TTL. After a server restart, create a new s
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | (required) | Anthropic API key |
+| `TRANSFORM_API_URL` | `http://localhost:8080` | Spring Boot base URL |
 | `AI_MODEL` | `claude-sonnet-4-6` | Claude model ID |
 | `AI_MAX_TOKENS` | `2048` | Max tokens per response |
-| `TRANSFORM_API_URL` | `http://localhost:8080` | Spring Boot base URL |
+| `SESSION_TTL_MINUTES` | `120` | Session inactivity timeout |
 
 ---
 
@@ -247,11 +314,16 @@ Sessions are in-memory with a 2-hour TTL. After a server restart, create a new s
 
 | Symptom | Fix |
 |---------|-----|
+| **`Cannot connect to Docker daemon`** | Open Docker Desktop and wait for it to fully start before running `docker compose` |
+| **`no service selected` from docker compose** | Specify services explicitly: `docker compose up -d postgres kafka zookeeper` |
+| **Spring Boot fails with `Connection refused` to Postgres** | Postgres container isn't up yet — wait 10s after `docker compose up` and retry |
+| **Port 8080 already in use** | `lsof -ti :8080 \| xargs kill -9` |
+| **`command not found: uvicorn`** | Use the venv directly: `cd platform-chatbot && .venv/bin/uvicorn src.main:app --reload --port 8000` |
+| **`command not found: python`** | Use `python3` for venv creation: `python3 -m venv .venv` |
 | **Blank screen at `/ui/`** | Run `npm run build` in `platform-ui/`, restart Spring Boot |
 | **Chatbot returns 500** | Python service on port 8000 is not running, or `ANTHROPIC_API_KEY` is not set |
-| **Chat panel shows "Something went wrong"** | Check `/tmp/chatbot.log` for Python errors |
+| **Chat panel shows "Something went wrong"** | Check chatbot terminal output for Python errors |
 | **`BadPaddingException` on startup** | Integration credentials encrypted with a different key — set `ENCRYPTION_ENABLED=false` or recreate the DB |
-| **Port 8080 already in use** | `lsof -i :8080 \| grep LISTEN` to find the PID, then `kill <PID>` |
 | **Profile creation fails with 400** | `windowConfig` requires `openTrigger` and `closeTrigger` each with a `"type"` field — ask the AI to create it instead |
 
 See `SKILL.md` for the full developer runbook.

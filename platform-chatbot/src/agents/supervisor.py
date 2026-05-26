@@ -20,15 +20,21 @@ Your only task is to output EXACTLY ONE of these routing labels — nothing else
                  "first time", "get started", "walk me through").
 
   flow_builder   user wants to build or configure a FileSpec, define fields,
-                 add correction or validation rules, or configure a processing profile
+                 add correction or validation rules, create a new file spec,
+                 or create / configure a processing profile
                  ("file spec", "field mapping", "correction rule", "validation rule",
-                 "build a flow", "define fields", "create spec").
+                 "build a flow", "define fields", "create spec", "new spec",
+                 "create a file spec", "create a profile", "new profile",
+                 "build a profile", "configure a profile").
 
   insights       user asks about errors, metrics, throughput, performance, SLAs,
                  or wants to analyse trends ("failed executions", "error summary",
                  "how many records", "success rate", "slow", "metrics", "trend").
 
-  general        everything else — listing resources, status checks, general questions.
+  general        everything else — listing resources, status checks, creating or
+                 updating integrations, enabling/disabling resources, general questions
+                 ("update integration", "change integration", "modify integration",
+                 "create integration", "new integration").
 
 Respond with ONLY the label word, lowercase, no punctuation."""
 

@@ -11,6 +11,9 @@ from langgraph.prebuilt import create_react_agent
 
 from src.tools.structured_data import build_structured_payload, extract_tool_results
 from src.tools.platform_api import (
+    create_file_spec,
+    create_integration,
+    create_profile,
     disable_integration,
     enable_integration,
     enable_profile,
@@ -23,25 +26,28 @@ from src.tools.platform_api import (
     list_integrations,
     list_profiles,
     list_windows,
+    update_integration,
 )
 
 _SYSTEM_PROMPT = """\
 You are the Transform Platform Assistant — a knowledgeable, concise helper for the
 Transform Platform file processing system.
 
-You can answer questions about the current state of the platform:
-- File specs: formats, field definitions, validation rules
-- Service integrations: SFTP, S3, FTP, Kafka connectors and their status
-- Processing profiles: configuration, status, trigger schedules
+You can answer questions about and manage the platform:
+- File specs: list, fetch, or create specs with fields, validation, and correction rules
+- Service integrations: SFTP, S3, FTP, Kafka connectors — list, create, update, enable, disable
+- Processing profiles: list, create, enable profiles with window configurations
 - Scheduling windows: open/closed state, associated profiles
 - Workflow executions: status, record counts, recent activity
 
 Guidelines:
 - Use tools to fetch live data rather than speculating.
 - Keep answers concise. Use bullet lists for multiple items.
-- If the user's request belongs to onboarding, spec building, or analytics,
-  acknowledge the topic but answer what you can with the available tools.
+- When creating a file spec, always confirm the format (CSV, FIXED_WIDTH, XML, etc.) and field list first.
+- When creating a profile, confirm the name, clientId, and trigger type before calling create_profile.
+- When updating an integration, fetch it first with get_integration to show the user the current values.
 - For destructive actions (delete, disable) always ask for confirmation first.
+- updatedBy should always be set to "ai-assistant" for operations you perform.
 """
 
 _agent_app = None
@@ -57,12 +63,16 @@ def _get_app():
         tools = [
             list_file_specs,
             get_file_spec,
+            create_file_spec,
             list_integrations,
             get_integration,
+            create_integration,
+            update_integration,
             enable_integration,
             disable_integration,
             list_profiles,
             get_profile,
+            create_profile,
             enable_profile,
             list_windows,
             list_executions,

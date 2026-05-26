@@ -150,6 +150,40 @@ async def create_integration(integration_json: str) -> str:
 
 
 @tool
+async def update_integration(integration_id: str, update_json: str) -> str:
+    """Update an existing service integration's description or connection details.
+
+    integration_id: the ID of the integration to update.
+    update_json must be a JSON string with at least updatedBy and optionally:
+      shortDescription (str): new human-readable label
+      details (object): updated connection-specific map (same keys as create)
+
+    Example — change SFTP password:
+    {
+      "shortDescription": "Bank SFTP drop (updated)",
+      "updatedBy": "ai-assistant",
+      "details": {"host": "sftp.bank.com", "port": 22, "userName": "user",
+                  "password": "new-secret", "directories": ["/outbox"]}
+    }
+
+    Example — update description only:
+    {
+      "shortDescription": "Renamed integration",
+      "updatedBy": "ai-assistant"
+    }
+    """
+    async with httpx.AsyncClient() as client:
+        resp = await client.put(
+            f"{_TRANSFORM_API_URL}/api/v1/integrations/{integration_id}",
+            content=update_json,
+            headers=_headers(),
+            timeout=15,
+        )
+        _raise_with_body(resp)
+        return json.dumps(resp.json())
+
+
+@tool
 async def enable_integration(integration_id: str) -> str:
     """Enable a service integration to start polling for files."""
     async with httpx.AsyncClient() as client:

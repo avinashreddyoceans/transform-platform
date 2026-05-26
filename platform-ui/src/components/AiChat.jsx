@@ -322,13 +322,10 @@ function ErrorSummaryCard({ data }) {
   )
 }
 
-function ResourceCreatedCard({ data }) {
-  const typeLabel = {
-    profile: 'Profile',
-    file_spec: 'File Spec',
-    integration: 'Integration',
-  }[data.resource_type] ?? data.resource_type
+const RESOURCE_LABELS = { profile: 'Profile', file_spec: 'File Spec', integration: 'Integration' }
 
+function ResourceCreatedCard({ data }) {
+  const typeLabel = RESOURCE_LABELS[data.resource_type] ?? data.resource_type
   return (
     <div className="flex items-start gap-2 p-2.5 rounded-lg border border-emerald-200 bg-emerald-50">
       <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" />
@@ -336,6 +333,20 @@ function ResourceCreatedCard({ data }) {
         <p className="text-[11px] font-semibold text-emerald-800">{typeLabel} created</p>
         {data.name && <p className="text-[11px] text-emerald-700 mt-0.5">{data.name}</p>}
         {data.id && <p className="text-[10px] text-emerald-500 font-mono mt-0.5">ID: {data.id}</p>}
+      </div>
+    </div>
+  )
+}
+
+function ResourceUpdatedCard({ data }) {
+  const typeLabel = RESOURCE_LABELS[data.resource_type] ?? data.resource_type
+  return (
+    <div className="flex items-start gap-2 p-2.5 rounded-lg border border-blue-200 bg-blue-50">
+      <CheckCircle2 size={16} className="text-blue-600 flex-shrink-0 mt-0.5" />
+      <div>
+        <p className="text-[11px] font-semibold text-blue-800">{typeLabel} updated</p>
+        {data.name && <p className="text-[11px] text-blue-700 mt-0.5">{data.name}</p>}
+        {data.id && <p className="text-[10px] text-blue-500 font-mono mt-0.5">ID: {data.id}</p>}
       </div>
     </div>
   )
@@ -351,6 +362,7 @@ function StructuredDataCard({ data }) {
     case 'profile_list':     return <ProfileListCard data={data} />
     case 'file_spec_list':   return <FileSpecListCard data={data} />
     case 'resource_created': return <ResourceCreatedCard data={data} />
+    case 'resource_updated': return <ResourceUpdatedCard data={data} />
     default:                 return null
   }
 }

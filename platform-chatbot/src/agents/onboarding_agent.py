@@ -21,8 +21,10 @@ from src.tools.platform_api import (
     create_profile,
     enable_integration,
     enable_profile,
+    get_integration,
     list_file_specs,
     list_integrations,
+    update_integration,
 )
 
 _SYSTEM_PROMPT = """\
@@ -61,8 +63,10 @@ def _get_app():
         tools = [
             list_file_specs,
             list_integrations,
+            get_integration,
             create_file_spec,
             create_integration,
+            update_integration,
             create_profile,
             enable_integration,
             enable_profile,
