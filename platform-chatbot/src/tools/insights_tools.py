@@ -44,7 +44,12 @@ async def get_error_summary(profile_id: str = "", days: int = 7) -> str:
             else f"{_TRANSFORM_API_URL}/api/executions"
         )
         resp = await client.get(url, headers=_headers(), timeout=15)
-        resp.raise_for_status()
+        if resp.is_error:
+            try:
+                body = resp.json()
+            except Exception:
+                body = resp.text
+            raise ValueError(f"HTTP {resp.status_code} from {resp.url}: {body}")
         all_executions: list = resp.json() if isinstance(resp.json(), list) else []
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
@@ -95,7 +100,12 @@ async def calculate_metrics(profile_id: str = "", days: int = 7) -> str:
             else f"{_TRANSFORM_API_URL}/api/executions"
         )
         resp = await client.get(url, headers=_headers(), timeout=15)
-        resp.raise_for_status()
+        if resp.is_error:
+            try:
+                body = resp.json()
+            except Exception:
+                body = resp.text
+            raise ValueError(f"HTTP {resp.status_code} from {resp.url}: {body}")
         all_executions: list = resp.json() if isinstance(resp.json(), list) else []
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)

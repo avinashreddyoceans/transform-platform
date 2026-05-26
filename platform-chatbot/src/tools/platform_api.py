@@ -23,6 +23,17 @@ def _headers() -> dict:
     return h
 
 
+def _raise_with_body(resp: httpx.Response) -> None:
+    """Raise an error that includes the response body so the LLM can self-correct."""
+    if not resp.is_error:
+        return
+    try:
+        body = resp.json()
+    except Exception:
+        body = resp.text
+    raise ValueError(f"HTTP {resp.status_code} from {resp.url}: {json.dumps(body)}")
+
+
 # ── File Specs ────────────────────────────────────────────────────────────────
 
 @tool
@@ -39,7 +50,7 @@ async def list_file_specs(format: str = "") -> str:
             headers=_headers(),
             timeout=15,
         )
-        resp.raise_for_status()
+        _raise_with_body(resp)
         return json.dumps(resp.json())
 
 
@@ -52,7 +63,7 @@ async def get_file_spec(spec_id: str) -> str:
             headers=_headers(),
             timeout=15,
         )
-        resp.raise_for_status()
+        _raise_with_body(resp)
         return json.dumps(resp.json())
 
 
@@ -69,7 +80,7 @@ async def create_file_spec(spec_json: str) -> str:
             headers=_headers(),
             timeout=15,
         )
-        resp.raise_for_status()
+        _raise_with_body(resp)
         return json.dumps(resp.json())
 
 
@@ -84,7 +95,7 @@ async def list_integrations() -> str:
             headers=_headers(),
             timeout=15,
         )
-        resp.raise_for_status()
+        _raise_with_body(resp)
         return json.dumps(resp.json())
 
 
@@ -97,14 +108,36 @@ async def get_integration(integration_id: str) -> str:
             headers=_headers(),
             timeout=15,
         )
-        resp.raise_for_status()
+        _raise_with_body(resp)
         return json.dumps(resp.json())
 
 
 @tool
 async def create_integration(integration_json: str) -> str:
     """Create a new service integration.
-    integration_json must include: type (SFTP|FTP|S3|KAFKA), userId, shortDescription, details (map)."""
+
+    integration_json must be a JSON string with ALL of these required fields:
+      type (str): SFTP | FTP | S3 | KAFKA
+      userId (str): owner identifier, e.g. "system"
+      shortDescription (str): human-readable label
+      updatedBy (str): who is creating this, e.g. "ai-assistant"
+      details (object): connection-specific map
+
+    SFTP example:
+    {
+      "type": "SFTP", "userId": "system", "updatedBy": "ai-assistant",
+      "shortDescription": "Bank SFTP drop",
+      "details": {"host": "sftp.bank.com", "port": 22, "username": "user",
+                  "password": "secret", "remoteDir": "/outbox"}
+    }
+
+    KAFKA example:
+    {
+      "type": "KAFKA", "userId": "system", "updatedBy": "ai-assistant",
+      "shortDescription": "Bank transactions topic",
+      "details": {"bootstrapServers": "localhost:9092", "topic": "bank-transactions"}
+    }
+    """
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             f"{_TRANSFORM_API_URL}/api/v1/integrations",
@@ -112,7 +145,7 @@ async def create_integration(integration_json: str) -> str:
             headers=_headers(),
             timeout=15,
         )
-        resp.raise_for_status()
+        _raise_with_body(resp)
         return json.dumps(resp.json())
 
 
@@ -125,7 +158,7 @@ async def enable_integration(integration_id: str) -> str:
             headers=_headers(),
             timeout=15,
         )
-        resp.raise_for_status()
+        _raise_with_body(resp)
         return json.dumps(resp.json())
 
 
@@ -138,7 +171,7 @@ async def disable_integration(integration_id: str) -> str:
             headers=_headers(),
             timeout=15,
         )
-        resp.raise_for_status()
+        _raise_with_body(resp)
         return json.dumps(resp.json())
 
 
@@ -157,7 +190,7 @@ async def list_profiles(status: str = "") -> str:
             headers=_headers(),
             timeout=15,
         )
-        resp.raise_for_status()
+        _raise_with_body(resp)
         return json.dumps(resp.json())
 
 
@@ -170,14 +203,32 @@ async def get_profile(profile_id: str) -> str:
             headers=_headers(),
             timeout=15,
         )
-        resp.raise_for_status()
+        _raise_with_body(resp)
         return json.dumps(resp.json())
 
 
 @tool
 async def create_profile(profile_json: str) -> str:
     """Create a new processing profile.
-    profile_json must be a valid profile JSON with name, windowConfig, and actions."""
+
+    profile_json must be a JSON string matching CreateProfileRequest.
+    Required fields: name (str), clientId (str), windowConfig (object).
+    windowConfig requires openTrigger and closeTrigger — each must include "type".
+
+    Minimal working example (TIME_BASED open/close, no actions):
+    {
+      "name": "my-pipeline",
+      "clientId": "default",
+      "description": "Daily bank file processing",
+      "windowConfig": {
+        "openTrigger":  {"type": "TIME_BASED", "openCron": "0 6 * * 1-5"},
+        "closeTrigger": {"type": "TIME_BASED", "openCron": "0 6 * * 1-5", "windowDuration": "PT1H"}
+      },
+      "actions": []
+    }
+
+    WindowTrigger "type" values: TIME_BASED | FILE_ARRIVAL | EVENT_COUNT | SESSION_GAP | COMPOUND | MANUAL
+    """
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             f"{_TRANSFORM_API_URL}/api/profiles",
@@ -185,7 +236,7 @@ async def create_profile(profile_json: str) -> str:
             headers=_headers(),
             timeout=15,
         )
-        resp.raise_for_status()
+        _raise_with_body(resp)
         return json.dumps(resp.json())
 
 
@@ -198,7 +249,7 @@ async def enable_profile(profile_id: str) -> str:
             headers=_headers(),
             timeout=15,
         )
-        resp.raise_for_status()
+        _raise_with_body(resp)
         return json.dumps(resp.json())
 
 
@@ -217,7 +268,7 @@ async def list_executions(status: str = "", profile_id: str = "") -> str:
         else:
             url = f"{_TRANSFORM_API_URL}/api/executions"
         resp = await client.get(url, params=params, headers=_headers(), timeout=15)
-        resp.raise_for_status()
+        _raise_with_body(resp)
         return json.dumps(resp.json())
 
 
@@ -230,7 +281,7 @@ async def get_execution(execution_id: str) -> str:
             headers=_headers(),
             timeout=15,
         )
-        resp.raise_for_status()
+        _raise_with_body(resp)
         return json.dumps(resp.json())
 
 
@@ -251,5 +302,5 @@ async def list_windows(status: str = "", profile_id: str = "") -> str:
             headers=_headers(),
             timeout=15,
         )
-        resp.raise_for_status()
+        _raise_with_body(resp)
         return json.dumps(resp.json())

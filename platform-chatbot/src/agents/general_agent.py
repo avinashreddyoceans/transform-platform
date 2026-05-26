@@ -10,6 +10,9 @@ from langchain_anthropic import ChatAnthropic
 from langgraph.prebuilt import create_react_agent
 
 from src.tools.platform_api import (
+    disable_integration,
+    enable_integration,
+    enable_profile,
     get_execution,
     get_file_spec,
     get_integration,
@@ -55,8 +58,11 @@ def _get_app():
             get_file_spec,
             list_integrations,
             get_integration,
+            enable_integration,
+            disable_integration,
             list_profiles,
             get_profile,
+            enable_profile,
             list_windows,
             list_executions,
             get_execution,

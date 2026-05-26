@@ -48,6 +48,10 @@ def _get_llm() -> ChatAnthropic:
 
 _VALID_AGENTS = {"onboarding", "flow_builder", "insights", "general"}
 
+# Short replies that should stay with the agent that asked the preceding question.
+_STICKY_TRIGGERS = {"yes", "no", "ok", "sure", "go ahead", "confirm", "proceed",
+                    "please", "do it", "yep", "nope", "cancel", "skip"}
+
 
 async def supervisor_node(state: dict) -> dict:
     """Classify intent and update active_agent so the graph can route correctly."""
@@ -57,6 +61,12 @@ async def supervisor_node(state: dict) -> dict:
 
     last = messages[-1]
     user_text: str = last.content if hasattr(last, "content") else str(last)
+    normalized = user_text.strip().lower().rstrip("!.?")
+
+    # Sticky routing: short confirmations/negations stay with the current agent.
+    current = state.get("active_agent", "general")
+    if normalized in _STICKY_TRIGGERS and current in _VALID_AGENTS:
+        return {"active_agent": current}
 
     llm = _get_llm()
     response = await llm.ainvoke(
