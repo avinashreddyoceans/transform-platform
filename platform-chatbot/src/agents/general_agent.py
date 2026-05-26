@@ -9,6 +9,7 @@ import os
 from langchain_anthropic import ChatAnthropic
 from langgraph.prebuilt import create_react_agent
 
+from src.tools.structured_data import build_structured_payload, extract_tool_results
 from src.tools.platform_api import (
     disable_integration,
     enable_integration,
@@ -85,9 +86,12 @@ async def general_node(state: dict) -> dict:
                 if name and name not in tools_used:
                     tools_used.append(name)
 
+    tool_results = extract_tool_results(result["messages"])
+    structured_data = build_structured_payload(tool_results, "general")
+
     return {
         "messages": [final_msg],
         "active_agent": "general",
         "wizard_step": 0,
-        "agent_metadata": {"tools_used": tools_used},
+        "agent_metadata": {"tools_used": tools_used, "structured_data": structured_data},
     }

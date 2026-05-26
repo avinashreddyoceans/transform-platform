@@ -20,6 +20,8 @@ from dotenv import load_dotenv
 
 load_dotenv()  # must run before importing graph (agents read env vars at import time)
 
+from typing import Any
+
 from fastapi import FastAPI, HTTPException
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
@@ -80,6 +82,7 @@ class ChatResponse(BaseModel):
     wizard_step: int
     wizard_total: int
     tools_used: list[str]
+    structured_data: dict[str, Any] | None = None
     updated_at: str
 
 
@@ -149,6 +152,7 @@ async def chat(session_id: str, req: ChatRequest) -> ChatResponse:
         wizard_step=result.get("wizard_step", 0),
         wizard_total=meta.get("wizard_total", 5),
         tools_used=meta.get("tools_used", []),
+        structured_data=meta.get("structured_data"),
         updated_at=now.isoformat(),
     )
 

@@ -10,6 +10,7 @@ import os
 from langchain_anthropic import ChatAnthropic
 from langgraph.prebuilt import create_react_agent
 
+from src.tools.structured_data import build_structured_payload, extract_tool_results
 from src.tools.platform_api import (
     create_file_spec,
     create_profile,
@@ -84,9 +85,12 @@ async def flow_builder_node(state: dict) -> dict:
                 if name and name not in tools_used:
                     tools_used.append(name)
 
+    tool_results = extract_tool_results(result["messages"])
+    structured_data = build_structured_payload(tool_results, "flow_builder")
+
     return {
         "messages": [final_msg],
         "active_agent": "flow_builder",
         "wizard_step": 0,
-        "agent_metadata": {"tools_used": tools_used},
+        "agent_metadata": {"tools_used": tools_used, "structured_data": structured_data},
     }

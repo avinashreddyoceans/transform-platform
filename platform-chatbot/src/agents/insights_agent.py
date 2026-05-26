@@ -11,6 +11,7 @@ from langchain_anthropic import ChatAnthropic
 from langgraph.prebuilt import create_react_agent
 
 from src.tools.insights_tools import calculate_metrics, get_error_summary
+from src.tools.structured_data import build_structured_payload, extract_tool_results
 from src.tools.platform_api import (
     get_execution,
     list_executions,
@@ -75,9 +76,12 @@ async def insights_node(state: dict) -> dict:
                 if name and name not in tools_used:
                     tools_used.append(name)
 
+    tool_results = extract_tool_results(result["messages"])
+    structured_data = build_structured_payload(tool_results, "insights")
+
     return {
         "messages": [final_msg],
         "active_agent": "insights",
         "wizard_step": 0,
-        "agent_metadata": {"tools_used": tools_used},
+        "agent_metadata": {"tools_used": tools_used, "structured_data": structured_data},
     }

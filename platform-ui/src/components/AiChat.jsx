@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   Sparkles, X, Send, RotateCcw, ChevronDown,
-  Loader2, Zap, AlertCircle, Bot, BarChart2, Wrench,
+  Loader2, Zap, AlertCircle, Bot, BarChart2, Wrench, CheckCircle2,
 } from 'lucide-react'
 import { aiApi } from '../api/ai'
 
@@ -48,20 +48,37 @@ function AgentBadge({ agent }) {
 
 // ── Wizard progress bar ────────────────────────────────────────────────────────
 
+const WIZARD_STEP_NAMES = ['Use Case', 'File Spec', 'Integration', 'Profile', 'Enable']
+
 function WizardProgress({ step, total }) {
   if (!step || step <= 0) return null
-  const pct = Math.min(100, Math.round((step / total) * 100))
   return (
-    <div className="px-4 py-2 bg-emerald-50 border-b border-emerald-100 flex-shrink-0">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] font-medium text-emerald-700">Setup wizard</span>
-        <span className="text-[10px] text-emerald-600 font-semibold">Step {step} / {total}</span>
-      </div>
-      <div className="h-1.5 bg-emerald-100 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-          style={{ width: `${pct}%` }}
-        />
+    <div className="px-4 py-2.5 bg-emerald-50 border-b border-emerald-100 flex-shrink-0">
+      <p className="text-[10px] font-medium text-emerald-700 mb-2">Setup wizard</p>
+      <div className="flex items-start gap-0">
+        {WIZARD_STEP_NAMES.map((name, i) => {
+          const idx = i + 1
+          const done = idx < step
+          const active = idx === step
+          const isLast = i === WIZARD_STEP_NAMES.length - 1
+          return (
+            <div key={name} className="flex items-center flex-1">
+              <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+                <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-all
+                  ${done ? 'bg-emerald-500 text-white' : active ? 'bg-emerald-600 text-white ring-2 ring-emerald-200' : 'bg-slate-200 text-slate-400'}`}>
+                  {done ? '✓' : idx}
+                </div>
+                <span className={`text-[9px] font-medium text-center leading-tight w-12 truncate
+                  ${active ? 'text-emerald-700' : done ? 'text-emerald-500' : 'text-slate-400'}`}>
+                  {name}
+                </span>
+              </div>
+              {!isLast && (
+                <div className={`flex-1 h-px mt-[-10px] mx-0.5 ${done ? 'bg-emerald-400' : 'bg-slate-200'}`} />
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -114,6 +131,230 @@ function ToolBadges({ tools }) {
   )
 }
 
+// ── Structured data cards ──────────────────────────────────────────────────────
+
+const STATUS_BADGE = {
+  // Execution statuses
+  COMPLETED: 'bg-emerald-100 text-emerald-700',
+  FAILED:    'bg-red-100 text-red-700',
+  RUNNING:   'bg-blue-100 text-blue-700',
+  PENDING:   'bg-slate-100 text-slate-500',
+  // Window statuses
+  OPEN:      'bg-emerald-100 text-emerald-700',
+  CLOSED:    'bg-slate-100 text-slate-500',
+  // Profile statuses
+  ENABLED:   'bg-emerald-100 text-emerald-700',
+  DRAFT:     'bg-amber-100 text-amber-700',
+  DISABLED:  'bg-slate-100 text-slate-500',
+}
+
+function StatusBadge({ status }) {
+  const cls = STATUS_BADGE[status?.toUpperCase()] ?? 'bg-slate-100 text-slate-500'
+  return (
+    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${cls}`}>
+      {status ?? '—'}
+    </span>
+  )
+}
+
+function CardTable({ headers, rows }) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-slate-200 mt-1">
+      <table className="w-full text-[11px]">
+        <thead>
+          <tr className="bg-slate-50 border-b border-slate-200">
+            {headers.map((h) => (
+              <th key={h} className="px-2 py-1.5 text-left font-semibold text-slate-500 whitespace-nowrap">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+              {row.map((cell, j) => (
+                <td key={j} className="px-2 py-1.5 text-slate-700 whitespace-nowrap">{cell}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function CardHeader({ title, count }) {
+  return (
+    <div className="flex items-center justify-between mb-1">
+      <span className="text-[11px] font-semibold text-slate-600">{title}</span>
+      {count != null && (
+        <span className="text-[10px] text-slate-400">{count} total</span>
+      )}
+    </div>
+  )
+}
+
+function ProfileListCard({ data }) {
+  if (!data.items?.length) return null
+  return (
+    <div>
+      <CardHeader title="Profiles" count={data.total} />
+      <CardTable
+        headers={['Name', 'Client', 'Status']}
+        rows={data.items.map((p) => [
+          p.name ?? p.id ?? '—',
+          p.clientId ?? '—',
+          <StatusBadge key="s" status={p.status} />,
+        ])}
+      />
+    </div>
+  )
+}
+
+function FileSpecListCard({ data }) {
+  if (!data.items?.length) return null
+  return (
+    <div>
+      <CardHeader title="File Specs" count={data.total} />
+      <CardTable
+        headers={['Name', 'Format', 'Fields']}
+        rows={data.items.map((s) => [
+          s.name ?? s.id ?? '—',
+          <span key="f" className="px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 text-[10px] font-semibold">{s.format ?? '—'}</span>,
+          s.fieldCount ?? '—',
+        ])}
+      />
+    </div>
+  )
+}
+
+function ExecutionListCard({ data }) {
+  if (!data.items?.length) return null
+  return (
+    <div>
+      <CardHeader title="Executions" count={data.total} />
+      <CardTable
+        headers={['Status', 'Profile', 'Records', 'Started']}
+        rows={data.items.map((e) => [
+          <StatusBadge key="s" status={e.status} />,
+          e.profileId ?? '—',
+          e.totalRecords ?? '—',
+          e.startedAt ? new Date(e.startedAt).toLocaleDateString() : '—',
+        ])}
+      />
+    </div>
+  )
+}
+
+function WindowListCard({ data }) {
+  if (!data.items?.length) return null
+  return (
+    <div>
+      <CardHeader title="Windows" count={data.total} />
+      <CardTable
+        headers={['Status', 'Profile', 'Opened', 'Closed']}
+        rows={data.items.map((w) => [
+          <StatusBadge key="s" status={w.status} />,
+          w.profileId ?? '—',
+          w.openedAt ? new Date(w.openedAt).toLocaleDateString() : '—',
+          w.closedAt ? new Date(w.closedAt).toLocaleDateString() : '—',
+        ])}
+      />
+    </div>
+  )
+}
+
+function MetricsSummaryCard({ data }) {
+  const successRate = data.success_rate_pct ?? data.successRatePct
+  const rateColor = successRate >= 90
+    ? 'text-emerald-700 bg-emerald-50'
+    : successRate >= 70
+    ? 'text-amber-700 bg-amber-50'
+    : 'text-red-700 bg-red-50'
+
+  const kpis = [
+    { label: 'Success Rate', value: successRate != null ? `${successRate.toFixed(1)}%` : '—', color: rateColor },
+    { label: 'Total Executions', value: data.total_executions ?? data.totalExecutions ?? '—', color: 'text-slate-700 bg-slate-50' },
+    { label: 'Avg Duration', value: data.avg_duration_ms != null ? `${(data.avg_duration_ms / 1000).toFixed(1)}s` : (data.avgDurationMs != null ? `${(data.avgDurationMs / 1000).toFixed(1)}s` : '—'), color: 'text-indigo-700 bg-indigo-50' },
+    { label: 'Records / Day', value: data.records_per_day ?? data.recordsPerDay ?? '—', color: 'text-slate-700 bg-slate-50' },
+  ]
+
+  return (
+    <div>
+      <CardHeader title="Processing Metrics" />
+      <div className="grid grid-cols-2 gap-1.5 mt-1">
+        {kpis.map(({ label, value, color }) => (
+          <div key={label} className={`rounded-lg p-2 ${color}`}>
+            <p className="text-[10px] font-medium opacity-70">{label}</p>
+            <p className="text-base font-bold leading-tight mt-0.5">{value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ErrorSummaryCard({ data }) {
+  const failedCount = data.failed_executions ?? data.failedExecutions
+  const days = data.period_days ?? data.periodDays
+  const errors = data.top_errors ?? data.topErrors ?? []
+
+  return (
+    <div>
+      <CardHeader title="Error Summary" />
+      {failedCount != null && (
+        <p className="text-[11px] text-red-600 mb-1.5">
+          {failedCount} failed execution{failedCount !== 1 ? 's' : ''}{days ? ` in last ${days} days` : ''}
+        </p>
+      )}
+      {errors.slice(0, 5).map((e, i) => {
+        const category = e.category ?? e.error_type ?? e.type ?? String(e)
+        const count = e.count
+        return (
+          <div key={i} className="flex items-center justify-between py-1 border-b border-slate-100 last:border-0">
+            <span className="text-[11px] text-slate-600 truncate mr-2">{category}</span>
+            {count != null && (
+              <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-semibold flex-shrink-0">{count}</span>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function ResourceCreatedCard({ data }) {
+  const typeLabel = {
+    profile: 'Profile',
+    file_spec: 'File Spec',
+    integration: 'Integration',
+  }[data.resource_type] ?? data.resource_type
+
+  return (
+    <div className="flex items-start gap-2 p-2.5 rounded-lg border border-emerald-200 bg-emerald-50">
+      <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+      <div>
+        <p className="text-[11px] font-semibold text-emerald-800">{typeLabel} created</p>
+        {data.name && <p className="text-[11px] text-emerald-700 mt-0.5">{data.name}</p>}
+        {data.id && <p className="text-[10px] text-emerald-500 font-mono mt-0.5">ID: {data.id}</p>}
+      </div>
+    </div>
+  )
+}
+
+function StructuredDataCard({ data }) {
+  if (!data) return null
+  switch (data.type) {
+    case 'metrics_summary':  return <MetricsSummaryCard data={data} />
+    case 'error_summary':    return <ErrorSummaryCard data={data} />
+    case 'execution_list':   return <ExecutionListCard data={data} />
+    case 'window_list':      return <WindowListCard data={data} />
+    case 'profile_list':     return <ProfileListCard data={data} />
+    case 'file_spec_list':   return <FileSpecListCard data={data} />
+    case 'resource_created': return <ResourceCreatedCard data={data} />
+    default:                 return null
+  }
+}
+
 // ── Message bubble ─────────────────────────────────────────────────────────────
 
 function MessageBubble({ msg }) {
@@ -145,7 +386,14 @@ function MessageBubble({ msg }) {
             <span>{msg.text}</span>
           </div>
         ) : (
-          <AssistantText text={msg.text} />
+          <>
+            <AssistantText text={msg.text} />
+            {msg.structuredData && (
+              <div className="mt-2 border-t border-slate-100 pt-2">
+                <StructuredDataCard data={msg.structuredData} />
+              </div>
+            )}
+          </>
         )}
         <ToolBadges tools={msg.toolsUsed} />
       </div>
@@ -207,7 +455,7 @@ function StarterPrompts({ onSelect }) {
 
 export default function AiChat() {
   const [isOpen, setIsOpen] = useState(false)
-  const [messages, setMessages] = useState([])  // { role, text, agent?, toolsUsed?, error? }
+  const [messages, setMessages] = useState([])  // { role, text, agent?, toolsUsed?, structuredData?, error? }
   const [sessionId, setSessionId] = useState(null)
   const [activeAgent, setActiveAgent] = useState('general')
   const [wizardStep, setWizardStep] = useState(0)
@@ -261,6 +509,7 @@ export default function AiChat() {
           text: result.response,
           agent: result.active_agent,
           toolsUsed: result.tools_used ?? [],
+          structuredData: result.structured_data ?? null,
           error: false,
         },
       ])
