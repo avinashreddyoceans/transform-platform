@@ -1,34 +1,75 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   Sparkles, X, Send, RotateCcw, ChevronDown,
-  Loader2, Zap, AlertCircle,
+  Loader2, Zap, AlertCircle, Bot, BarChart2, Wrench,
 } from 'lucide-react'
 import { aiApi } from '../api/ai'
 
 // ── AiChat ─────────────────────────────────────────────────────────────────────
 //
-// Floating AI assistant for the Transform Platform.
+// Floating multi-agent AI assistant for the Transform Platform.
 //
 // Architecture:
-//   - Floating button (bottom-right) toggles the chat panel
-//   - Chat panel slides in as a fixed overlay on the right edge
-//   - Conversation history is stored in component state and sent back to the
-//     server on each turn (stateless backend, stateful frontend)
+//   - Session is created on first send (POST /chatbot/sessions) and stored in state.
+//   - Each turn calls POST /chatbot/sessions/{id}/chat.
+//   - Response includes active_agent, wizard_step, wizard_total, tools_used.
+//   - An agent badge shows which specialist is active.
+//   - A wizard progress bar appears when wizard_step > 0.
 //
-// Backend: POST /api/ai/chat → { response, toolsUsed, updatedHistory, error }
+// Backend: platform-chatbot FastAPI service on :8000 (proxied via /chatbot)
 
 const STARTER_PROMPTS = [
+  'Help me set up my first pipeline',
   'How many profiles are enabled?',
-  'Show me recent failed executions',
+  'Show me failed executions this week',
   'What windows are open right now?',
-  'List all available file specs',
-  'Create a profile for daily CSV processing',
+  'Build a CSV file spec for bank transactions',
 ]
 
-// ── Utility: render assistant text (preserves newlines, code blocks) ─────────
+// ── Agent badge config ─────────────────────────────────────────────────────────
+
+const AGENT_CONFIG = {
+  onboarding:   { label: 'Onboarding',    color: 'bg-emerald-100 text-emerald-700 border-emerald-200', Icon: Sparkles },
+  flow_builder: { label: 'Flow Builder',  color: 'bg-violet-100 text-violet-700 border-violet-200',   Icon: Wrench },
+  insights:     { label: 'Insights',      color: 'bg-amber-100 text-amber-700 border-amber-200',       Icon: BarChart2 },
+  general:      { label: 'Assistant',     color: 'bg-indigo-100 text-indigo-700 border-indigo-200',    Icon: Bot },
+}
+
+function AgentBadge({ agent }) {
+  const cfg = AGENT_CONFIG[agent] ?? AGENT_CONFIG.general
+  const { label, color, Icon } = cfg
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${color}`}>
+      <Icon size={9} />
+      {label}
+    </span>
+  )
+}
+
+// ── Wizard progress bar ────────────────────────────────────────────────────────
+
+function WizardProgress({ step, total }) {
+  if (!step || step <= 0) return null
+  const pct = Math.min(100, Math.round((step / total) * 100))
+  return (
+    <div className="px-4 py-2 bg-emerald-50 border-b border-emerald-100 flex-shrink-0">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] font-medium text-emerald-700">Setup wizard</span>
+        <span className="text-[10px] text-emerald-600 font-semibold">Step {step} / {total}</span>
+      </div>
+      <div className="h-1.5 bg-emerald-100 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ── Utility: render assistant text ─────────────────────────────────────────────
 
 function AssistantText({ text }) {
-  // Split on code fences and render inline/block code simply
   const parts = text.split(/(```[\s\S]*?```)/g)
   return (
     <div className="space-y-2 text-sm leading-relaxed">
@@ -44,7 +85,6 @@ function AssistantText({ text }) {
             </pre>
           )
         }
-        // Plain text — preserve line breaks
         return (
           <span key={i} className="whitespace-pre-wrap">
             {part}
@@ -55,7 +95,7 @@ function AssistantText({ text }) {
   )
 }
 
-// ── Tool use badges ──────────────────────────────────────────────────────────
+// ── Tool use badges ────────────────────────────────────────────────────────────
 
 function ToolBadges({ tools }) {
   if (!tools || tools.length === 0) return null
@@ -74,7 +114,7 @@ function ToolBadges({ tools }) {
   )
 }
 
-// ── Message bubble ────────────────────────────────────────────────────────────
+// ── Message bubble ─────────────────────────────────────────────────────────────
 
 function MessageBubble({ msg }) {
   const isUser = msg.role === 'user'
@@ -96,6 +136,7 @@ function MessageBubble({ msg }) {
           <Sparkles size={10} className="text-indigo-600" />
         </div>
         <span className="text-[11px] font-medium text-slate-400">AI Assistant</span>
+        {msg.agent && <AgentBadge agent={msg.agent} />}
       </div>
       <div className="max-w-[92%] bg-white text-slate-800 rounded-2xl rounded-tl-sm px-3.5 py-2.5 border border-slate-200 shadow-sm">
         {msg.error ? (
@@ -112,7 +153,7 @@ function MessageBubble({ msg }) {
   )
 }
 
-// ── Thinking indicator ────────────────────────────────────────────────────────
+// ── Thinking indicator ─────────────────────────────────────────────────────────
 
 function ThinkingBubble() {
   return (
@@ -133,7 +174,7 @@ function ThinkingBubble() {
   )
 }
 
-// ── Starter prompts ───────────────────────────────────────────────────────────
+// ── Starter prompts ────────────────────────────────────────────────────────────
 
 function StarterPrompts({ onSelect }) {
   return (
@@ -144,7 +185,7 @@ function StarterPrompts({ onSelect }) {
         </div>
         <p className="text-sm font-semibold text-slate-700">Transform Platform Assistant</p>
         <p className="text-xs text-slate-400 max-w-[220px]">
-          Ask me about profiles, windows, executions, or let me create resources for you.
+          Ask me about profiles, windows, executions, or let me guide you through setup.
         </p>
       </div>
       <div className="w-full flex flex-col gap-2 mt-2">
@@ -162,12 +203,15 @@ function StarterPrompts({ onSelect }) {
   )
 }
 
-// ── Main AiChat component ─────────────────────────────────────────────────────
+// ── Main AiChat component ──────────────────────────────────────────────────────
 
 export default function AiChat() {
   const [isOpen, setIsOpen] = useState(false)
-  const [messages, setMessages] = useState([]) // { role, text, toolsUsed?, error? }
-  const [history, setHistory] = useState([])   // AnthropicMessage[] for the backend
+  const [messages, setMessages] = useState([])  // { role, text, agent?, toolsUsed?, error? }
+  const [sessionId, setSessionId] = useState(null)
+  const [activeAgent, setActiveAgent] = useState('general')
+  const [wizardStep, setWizardStep] = useState(0)
+  const [wizardTotal, setWizardTotal] = useState(5)
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [hasActivity, setHasActivity] = useState(false)
@@ -195,17 +239,29 @@ export default function AiChat() {
     setIsLoading(true)
 
     try {
-      const result = await aiApi.chat(userText, history)
+      // Create session on first message
+      let sid = sessionId
+      if (!sid) {
+        const session = await aiApi.createSession()
+        sid = session.session_id
+        setSessionId(sid)
+      }
 
-      setHistory(result.updatedHistory ?? [])
+      const result = await aiApi.chat(sid, userText)
+
+      setActiveAgent(result.active_agent ?? 'general')
+      setWizardStep(result.wizard_step ?? 0)
+      setWizardTotal(result.wizard_total ?? 5)
       setHasActivity(true)
+
       setMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
           text: result.response,
-          toolsUsed: result.toolsUsed ?? [],
-          error: !!result.error,
+          agent: result.active_agent,
+          toolsUsed: result.tools_used ?? [],
+          error: false,
         },
       ])
     } catch (err) {
@@ -223,9 +279,14 @@ export default function AiChat() {
     }
   }
 
-  const clearConversation = () => {
+  const clearConversation = async () => {
+    if (sessionId) {
+      try { await aiApi.clearSession(sessionId) } catch (_) { /* ignore */ }
+    }
     setMessages([])
-    setHistory([])
+    setSessionId(null)
+    setActiveAgent('general')
+    setWizardStep(0)
     setHasActivity(false)
     setInput('')
   }
@@ -284,7 +345,10 @@ export default function AiChat() {
               <Sparkles size={15} className="text-white" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-800 leading-none">AI Assistant</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-slate-800 leading-none">AI Assistant</p>
+                {messages.length > 0 && <AgentBadge agent={activeAgent} />}
+              </div>
               <p className="text-[11px] text-slate-400 mt-0.5 leading-none">Transform Platform</p>
             </div>
           </div>
@@ -307,6 +371,9 @@ export default function AiChat() {
             </button>
           </div>
         </div>
+
+        {/* Wizard progress bar (only shown during onboarding) */}
+        <WizardProgress step={wizardStep} total={wizardTotal} />
 
         {/* Messages area */}
         <div className="flex-1 overflow-y-auto">

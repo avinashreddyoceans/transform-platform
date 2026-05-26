@@ -51,7 +51,13 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
         rewrite: path => path,
-      }
+      },
+      // Forward /chatbot calls to the LangGraph chatbot service
+      '/chatbot': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: path => path.replace(/^\/chatbot/, ''),
+      },
     }
   }
 })

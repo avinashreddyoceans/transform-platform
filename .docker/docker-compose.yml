@@ -376,6 +376,40 @@ services:
         || echo "Data view may already exist — skipping.";
       '
 
+  # ── AI Chatbot Service ────────────────────────────────────────────────────
+  # LangGraph multi-agent chatbot for the Transform Platform UI.
+  # Start with: --profile core  (depends on the core Spring Boot API)
+  # Budget: ~256 MB (Python 3.12-slim + LangGraph + FastAPI)
+  #
+  # Required env vars (add to your .env):
+  #   ANTHROPIC_API_KEY=sk-ant-...
+  #
+  # Listens on :8000.  Vite dev-server proxies /chatbot → :8000.
+
+  chatbot:
+    build:
+      context: ../platform-chatbot
+      dockerfile: Dockerfile
+    container_name: transform-chatbot
+    profiles: [core]
+    ports:
+      - "8000:8000"
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      TRANSFORM_API_URL: http://platform-api:8080
+      AI_MODEL: ${AI_MODEL:-claude-sonnet-4-6}
+      SESSION_TTL_MINUTES: "120"
+    depends_on:
+      - postgres
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   pgadmin_data:

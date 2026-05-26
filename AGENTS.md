@@ -62,6 +62,17 @@ transform-platform/
 ├── platform-api/                   # Spring Boot REST API (the only runnable module)
 ├── platform-pipeline/              # Spring Batch jobs (no source yet)
 ├── platform-scheduler/             # Quartz scheduler (no source yet)
+├── platform-chatbot/               # Python LangGraph multi-agent chatbot (port 8000)
+│   ├── src/
+│   │   ├── agents/                 # supervisor, onboarding, flow_builder, insights, general
+│   │   ├── tools/                  # platform_api (httpx) + insights_tools (aggregations)
+│   │   ├── state.py                # ChatState TypedDict (messages, wizard_step, agent_metadata)
+│   │   ├── graph.py                # StateGraph: supervisor → [4 sub-agents] → END
+│   │   └── main.py                 # FastAPI: /sessions, /sessions/{id}/chat, /health
+│   ├── pyproject.toml              # langgraph, langchain-anthropic, fastapi, httpx, uvicorn
+│   ├── Dockerfile                  # python:3.12-slim image
+│   └── .env.example                # ANTHROPIC_API_KEY, TRANSFORM_API_URL
+├── platform-ui/                    # React + Vite SPA
 ├── SKILL.md                        # Developer runbook
 ├── AGENTS.md                       # This file
 └── README.md                       # Project overview
@@ -89,6 +100,18 @@ transform-platform/
 **Dependency version rule**: Spring Boot BOM manages most versions. Only override
 when a specific version is required. Never add `flyway-database-postgresql` — it does
 not exist in Flyway 9.x (the version Boot 3.2.3 manages).
+
+### platform-chatbot (Python service)
+
+| Concern | Choice | Version |
+|---------|--------|---------|
+| Language | Python | 3.12 |
+| Agent framework | LangGraph | ≥0.2 |
+| LLM | Claude (via langchain-anthropic) | ≥0.2 |
+| Web server | FastAPI + Uvicorn | ≥0.115 / ≥0.30 |
+| HTTP client | httpx (async) | ≥0.27 |
+| Model | `claude-sonnet-4-6` (override with `AI_MODEL` env var) | — |
+| Sessions | In-memory dict, 2 h TTL | — |
 
 ---
 

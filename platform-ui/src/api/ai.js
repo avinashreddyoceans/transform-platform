@@ -1,18 +1,33 @@
 import { api } from './client'
 
-// ── AI Assistant API ──────────────────────────────────────────────────────────
+// ── AI Chatbot API ─────────────────────────────────────────────────────────────
 //
-// Wraps POST /api/ai/chat
-// Request:  { message: string, history: ConversationTurn[] }
-// Response: { response, toolsUsed, iterations, updatedHistory, timestamp, error? }
+// Session-based client for the platform-chatbot LangGraph service (port 8000).
+// In dev the Vite proxy forwards /chatbot → http://localhost:8000.
+// In production the chatbot service is served separately at port 8000.
+//
+// Session lifecycle:
+//   createSession()           → POST /chatbot/sessions   → { session_id, created_at }
+//   chat(sessionId, message)  → POST /chatbot/sessions/{id}/chat
+//                             → { response, active_agent, wizard_step, wizard_total,
+//                                 tools_used, updated_at }
+//   clearSession(sessionId)   → DELETE /chatbot/sessions/{id}  → null (204)
 
 export const aiApi = {
+  /** Create a new chat session. Returns { session_id, created_at }. */
+  createSession: () =>
+    api.post('/chatbot/sessions', undefined),
+
   /**
-   * Send a chat message to the AI assistant.
-   * @param {string} message - The user's message.
-   * @param {Array}  history - Previous conversation turns (pass updatedHistory from last response).
-   * @returns {Promise<AiChatResponse>}
+   * Send a message in an existing session.
+   * @param {string} sessionId - Session ID from createSession().
+   * @param {string} message   - User message text.
+   * @returns {Promise<ChatResponse>}
    */
-  chat: (message, history = []) =>
-    api.post('/api/ai/chat', { message, history }),
+  chat: (sessionId, message) =>
+    api.post(`/chatbot/sessions/${sessionId}/chat`, { message }),
+
+  /** Delete a session (clears server-side memory). */
+  clearSession: (sessionId) =>
+    api.delete(`/chatbot/sessions/${sessionId}`),
 }
