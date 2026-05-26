@@ -1,70 +1,196 @@
 # Transform Platform
 
-Enterprise-grade, spec-driven file ↔ event transformation engine.
+Enterprise-grade, spec-driven file ↔ event transformation engine with a multi-agent AI assistant.
 
-📖 **[Full documentation →](https://avinashreddyoceans.github.io/transform-platform/)**
-To run the docs locally: `cd website && npm install && npm start`
+---
+
+## What it does
+
+Transform Platform ingests files (CSV, Fixed-Width, XML, ISO 20022, NACHA, SWIFT MT, and more), validates and corrects each record against a declarative `FileSpec`, then publishes results to Kafka. No code changes are needed to support a new file layout — register a spec, upload a file.
+
+A built-in multi-agent AI assistant helps you set up pipelines, build file specs, and analyse execution metrics through natural language.
+
+---
 
 ## Architecture
 
 ```
-[File In]  →  [Parser]  →  [Correct]  →  [Validate]  →  [Kafka Events Out]
-[Events In] → [Aggregator] → [File Builder] → [File Out]
-                    ↑
-         [Spec Registry — user-defined schemas]
+platform-ui      (React + Vite — served from :8080/ui/ in production, :5173 in dev)
+      |
+platform-api     (Spring Boot 3.2.3 / Kotlin, port 8080)
+      |                               |
+platform-chatbot (FastAPI + LangGraph, port 8000)        PostgreSQL + Kafka
 ```
 
-## Modules
+| Module | Purpose |
+|--------|---------|
+| `platform-api` | REST API, Spring Boot entry point, serves the built React UI at `/ui/` |
+| `platform-ui` | React SPA — Profiles, Windows, Executions, Dashboard, AI chat panel |
+| `platform-chatbot` | Python LangGraph multi-agent chatbot (Supervisor + 4 specialist agents) |
+| `platform-core` | Parsers, validation/correction engine, Kafka writer |
+| `platform-common` | Shared models, no framework dependencies |
+| `platform-pipeline` | Spring Batch jobs (future) |
+| `platform-scheduler` | Quartz scheduler (future) |
 
-| Module               | Purpose                                                          |
-|----------------------|------------------------------------------------------------------|
-| `platform-common`    | Shared models, exceptions, utilities                             |
-| `platform-core`      | Spec engine, parsers, validators, transformers, writers          |
-| `platform-api`       | REST API — spec management, file upload, transform orchestration |
-| `platform-pipeline`  | Spring Batch jobs for bulk processing                            |
-| `platform-scheduler` | Quartz-based scheduling and delay engine                         |
+---
 
-## Supported Formats (Phase 1)
+## Prerequisites
 
-- CSV / Delimited (any delimiter)
-- Fixed-Width / Flat File
-- XML (with XPath field mapping, XSD validation)
-- JSON (coming Phase 2)
-- NACHA (coming Phase 2)
-- ISO 20022 (coming Phase 2)
+- Java 21+
+- Node 18+ / npm
+- Python 3.12+
+- Docker (for PostgreSQL + Kafka)
+- An Anthropic API key (required for the AI assistant)
 
-## Quick Start
+---
 
-### Prerequisites
-- JDK 21+
-- Docker & Docker Compose
-- Gradle 8+
+## Quick start
 
-### Start infrastructure
+### 1. Start infrastructure
+
 ```bash
-docker compose -f .docker/docker-compose.yml up -d
+cd .docker
+docker compose up -d          # starts Postgres + Kafka + Zookeeper
 ```
 
-### Run the API
+### 2. Configure environment
+
+Copy `.docker/env.example` to `.docker/.env` and fill in:
+
+```
+DB_USER=transform_user
+DB_PASS=transform_pass
+KAFKA_BROKERS=localhost:9092
+JWT_SECRET=<any-long-random-string>
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+### 3. Start the API
+
 ```bash
 ./gradlew :platform-api:bootRun
 ```
 
-### Swagger UI
-Open: http://localhost:8080/swagger-ui
+The API starts on **http://localhost:8080**.
+The React UI is served at **http://localhost:8080/ui/**.
 
-### Run tests
+### 4. Start the AI chatbot
+
 ```bash
-./gradlew test
+cd platform-chatbot
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -e .
+ANTHROPIC_API_KEY=sk-ant-... uvicorn src.main:app --reload --port 8000
 ```
-### Run Integrations Tests
+
+Health check: **http://localhost:8080/chatbot/health**
+
+The chatbot is also accessible through the Spring Boot reverse proxy at `/chatbot/`.
+
+---
+
+## Using the UI
+
+Open **http://localhost:8080/ui/** in your browser.
+
+| Page | What it shows |
+|------|--------------|
+| **Dashboard** | Profile summary and recent activity |
+| **Profiles** | Create, edit, and enable processing profiles |
+| **Windows** | Scheduling windows — open/closed state |
+| **Executions** | Job run history with record counts and status |
+
+### AI Assistant
+
+Click the **AI Assistant** button in the bottom-right corner. The assistant automatically routes your request to the right specialist agent:
+
+| Agent | Activated by | Capabilities |
+|-------|-------------|--------------|
+| **Onboarding** | "Help me set up my first pipeline", "onboard me", "walk me through" | Guided 5-step wizard — creates a file spec, integration, and profile end-to-end |
+| **Flow Builder** | "Build a CSV spec", "add a validation rule", "create a profile" | Builds `FileSpec` and `Profile` objects conversationally |
+| **Insights** | "Show me failures this week", "success rate", "metrics", "how many records" | Aggregates execution data, surfaces error trends and throughput |
+| **General** | Everything else | Lists and fetches any platform resource |
+
+**Features in the chat panel:**
+- **Agent badge** — coloured chip shows which agent is active (Emerald = Onboarding, Violet = Flow Builder, Amber = Insights, Indigo = General)
+- **Wizard progress bar** — appears at the top during the Onboarding wizard, e.g. "Step 2 / 5"
+- **Tool badges** — small chips under each AI response show which API tools were called
+- **New conversation** — click the refresh icon to reset context and start a fresh session
+
+---
+
+## Development mode (hot-reload)
+
 ```bash
-./gradlew clean build -x integrationTest
+# Terminal 1 — API
+./gradlew :platform-api:bootRun
+
+# Terminal 2 — Chatbot
+cd platform-chatbot && source .venv/bin/activate
+ANTHROPIC_API_KEY=sk-ant-... uvicorn src.main:app --reload --port 8000
+
+# Terminal 3 — UI (Vite HMR)
+cd platform-ui && npm run dev
 ```
 
-## Creating a Spec
+Access the UI at **http://localhost:5173** in dev mode. Vite proxies `/api` to `:8080` and `/chatbot` to `:8000`.
 
-```json5
+---
+
+## Building for production
+
+```bash
+cd platform-ui && npm run build   # outputs to platform-api/src/main/resources/static/ui/
+./gradlew :platform-api:bootJar   # creates platform-api/build/libs/platform-api-*.jar
+java -jar platform-api/build/libs/platform-api-*.jar
+```
+
+The fat JAR includes the React UI. No separate frontend server needed.
+
+---
+
+## Docker Compose (full stack)
+
+```bash
+cp .docker/env.example .docker/.env   # fill in ANTHROPIC_API_KEY and secrets
+docker compose -f .docker/docker-compose.yml --profile core up -d
+```
+
+| Service | URL |
+|---------|-----|
+| Platform UI + API | http://localhost:8080/ui/ |
+| Chatbot (via proxy) | http://localhost:8080/chatbot/health |
+| Kafka UI | http://localhost:8085 |
+| PostgreSQL | localhost:5432 |
+
+---
+
+## REST API
+
+OpenAPI docs: **http://localhost:8080/swagger-ui.html**
+
+Key endpoints:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/specs` | List file specs |
+| `POST` | `/api/v1/specs` | Create file spec |
+| `GET` | `/api/v1/integrations` | List integrations (SFTP, S3, FTP, Kafka) |
+| `POST` | `/api/v1/integrations` | Create integration |
+| `GET` | `/api/profiles` | List processing profiles |
+| `POST` | `/api/profiles` | Create profile |
+| `POST` | `/api/profiles/{id}/enable` | Enable a profile |
+| `GET` | `/api/executions` | List all executions |
+| `POST` | `/chatbot/sessions` | Create AI chat session |
+| `POST` | `/chatbot/sessions/{id}/chat` | Send message to AI |
+| `DELETE` | `/chatbot/sessions/{id}` | Clear a session |
+
+---
+
+## Creating a FileSpec
+
+```json
 POST /api/v1/specs
 {
   "name": "Bank Transactions CSV",
@@ -74,31 +200,58 @@ POST /api/v1/specs
   "fields": [
     { "name": "accountNumber", "type": "STRING",  "columnName": "account_number", "sensitive": true },
     { "name": "amount",        "type": "DECIMAL", "columnName": "amount" },
-    { "name": "transactionDate","type": "DATE",   "columnName": "date", "format": "yyyy-MM-dd" },
-    { "name": "description",   "type": "STRING",  "columnName": "description", "required": false }
+    { "name": "transactionDate","type": "DATE",   "columnName": "date", "format": "yyyy-MM-dd" }
   ],
   "correctionRules": [
-    { "ruleId": "trim-desc", "field": "description", "correctionType": "TRIM" }
+    { "ruleId": "trim-amount", "field": "amount", "correctionType": "TRIM" }
   ],
   "validationRules": [
-    { "ruleId": "amount-positive", "field": "amount", "ruleType": "MIN_VALUE", "value": "0", "message": "Amount must be positive", "severity": "ERROR" }
+    { "ruleId": "amount-positive", "field": "amount", "ruleType": "MIN_VALUE", "value": "0",
+      "message": "Amount must be positive", "severity": "ERROR" }
   ]
 }
 ```
 
-## Transforming a File
+Or just ask the AI: *"Build a CSV file spec for bank transactions with account number, amount, and date fields."*
 
-```bash
-curl -X POST http://localhost:8080/api/v1/transform/file-to-events \
-  -F "file=@transactions.csv" \
-  -F "specId=<your-spec-id>" \
-  -F "kafkaTopic=bank-transactions"
+---
+
+## Chatbot architecture
+
+```
+POST /chatbot/sessions/{id}/chat
+            |
+      SupervisorNode  ← LLM intent classifier (max_tokens=20)
+            |
+  ┌──────────┬──────────┬──────────┐
+  Onboarding  FlowBuilder  Insights  General
+  Agent       Agent        Agent     Agent
+            |
+  httpx tools → Spring Boot REST API (:8080)
 ```
 
-## Design Principles
+Sessions are in-memory with a 2-hour TTL. After a server restart, create a new session.
 
-- **Spec-Driven**: All parsing behaviour is defined by specs, not code. Add a new format by registering a spec.
-- **Stream-First**: Files of any size are processed as a Flow — never loaded fully into memory.
-- **Open/Closed**: Add new parsers or writers by implementing an interface. Zero changes to existing code.
-- **Fail-Safe**: Errors are collected per-record; the pipeline continues unless a FATAL error is encountered.
-- **Security-First**: Sensitive fields are masked in logs. Encryption at rest and in transit by design.
+**Chatbot environment variables:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ANTHROPIC_API_KEY` | (required) | Anthropic API key |
+| `AI_MODEL` | `claude-sonnet-4-6` | Claude model ID |
+| `AI_MAX_TOKENS` | `2048` | Max tokens per response |
+| `TRANSFORM_API_URL` | `http://localhost:8080` | Spring Boot base URL |
+
+---
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| **Blank screen at `/ui/`** | Run `npm run build` in `platform-ui/`, restart Spring Boot |
+| **Chatbot returns 500** | Python service on port 8000 is not running, or `ANTHROPIC_API_KEY` is not set |
+| **Chat panel shows "Something went wrong"** | Check `/tmp/chatbot.log` for Python errors |
+| **`BadPaddingException` on startup** | Integration credentials encrypted with a different key — set `ENCRYPTION_ENABLED=false` or recreate the DB |
+| **Port 8080 already in use** | `lsof -i :8080 \| grep LISTEN` to find the PID, then `kill <PID>` |
+| **Profile creation fails with 400** | `windowConfig` requires `openTrigger` and `closeTrigger` each with a `"type"` field — ask the AI to create it instead |
+
+See `SKILL.md` for the full developer runbook.

@@ -9,6 +9,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import org.springframework.web.servlet.resource.NoResourceFoundException
 
 private val log = KotlinLogging.logger {}
 
@@ -30,6 +31,13 @@ private val log = KotlinLogging.logger {}
 class GlobalExceptionHandler {
 
     // ── 404 Not Found ──────────────────────────────────────────────────────────
+
+    @ExceptionHandler(NoResourceFoundException::class)
+    fun handleNoResource(ex: NoResourceFoundException): ResponseEntity<ErrorBody> {
+        log.debug { "Static resource not found: ${ex.message}" }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(ErrorBody(ex.message ?: "Not found"))
+    }
 
     @ExceptionHandler(NoSuchElementException::class)
     fun handleNotFound(ex: NoSuchElementException): ResponseEntity<ErrorBody> {
